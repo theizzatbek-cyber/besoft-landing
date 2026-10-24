@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Be Soft — amoCRM и телефония для бизнеса в Ташкенте</title>
+<meta name="description" content="Подключим amoCRM и телефонию за 7 дней. Бесплатный аудит отдела продаж.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23027FFF'/%3E%3Ctext x='8' y='44' font-family='Arial' font-weight='900' font-size='32' fill='white'%3EBs.%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800;900&display=swap">
+<style>
+/* Layout: careerspace-style — white page, one big rounded hero card with a blue/lime mesh and the form inside it; 3 tinted cards; dark call band. Centered, short, one action. */
+:root{
+  --bg:#FFFFFF; --soft:#F6F8FB; --ink:#0A0B0D; --muted:rgba(10,11,13,.6); --line:rgba(10,11,13,.08);
+  --blue:#027FFF; --blue-soft:rgba(2,127,255,.08); --lime:#C8FF3A; --coral:#FF4D3D; --card:#FFFFFF;
+  --dark:#0A0B0D; --on-dark:#FFFFFF;
+  --sans:"Onest","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B0C0F; --soft:#14161B; --ink:#F2F3F5; --muted:rgba(242,243,245,.62); --line:rgba(255,255,255,.09);
+  --blue:#2B93FF; --blue-soft:rgba(43,147,255,.12); --card:#14161B; --dark:#16181D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B0C0F; --soft:#14161B; --ink:#F2F3F5; --muted:rgba(242,243,245,.62); --line:rgba(255,255,255,.09);
+  --blue:#2B93FF; --blue-soft:rgba(43,147,255,.12); --card:#14161B; --dark:#16181D; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.035em}
+p{margin:0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px}
+.logo{text-decoration:none}.mark{width:40px;height:40px;border-radius:10px;background:#027FFF;color:#F2F1F1;font-weight:800;font-size:19px;letter-spacing:-.05em;display:flex;align-items:center;justify-content:center;line-height:1}.mark i{font-style:normal}
+.top-r{display:flex;align-items:center;gap:10px}
+.lang{display:flex;background:var(--soft);border-radius:10px;padding:3px}
+.lang button{all:unset;cursor:pointer;font-size:13px;font-weight:600;padding:6px 10px;border-radius:8px;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.top-cta{all:unset;cursor:pointer;background:var(--ink);color:var(--bg);font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px}
+
+/* hero card */
+.hero{position:relative;overflow:hidden;border-radius:28px;padding-block:56px 40px;padding-inline:20px;text-align:center;color:#0A0B0D;
+  background:
+    radial-gradient(60% 70% at 12% 18%, #C8FF3A 0%, rgba(200,255,58,0) 60%),
+    radial-gradient(55% 65% at 88% 12%, #7FD4FF 0%, rgba(127,212,255,0) 62%),
+    radial-gradient(70% 80% at 80% 95%, #027FFF 0%, rgba(2,127,255,0) 60%),
+    radial-gradient(60% 70% at 15% 100%, #4FB3FF 0%, rgba(79,179,255,0) 60%),
+    #E8F4FF}
+.badges{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.75);backdrop-filter:blur(6px);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600}
+.badge .hot{color:#E0301E}
+.dot{width:7px;height:7px;border-radius:50%;background:#1BB35A;box-shadow:0 0 0 3px rgba(27,179,90,.2)}
+.hero h1{font-size:clamp(34px,6.4vw,72px);line-height:1;font-weight:900;max-width:17ch;margin-inline:auto}
+.hero .sub{margin:18px auto 0;font-size:clamp(16px,1.8vw,19px);color:rgba(10,11,13,.68);max-width:34em}
+
+/* form inside hero */
+.form{margin:32px auto 0;max-width:640px;background:#FFFFFF;border-radius:18px;padding:10px;display:grid;grid-template-columns:1fr 1fr auto;gap:8px;box-shadow:0 20px 50px -20px rgba(2,60,140,.35)}
+.form input{font:inherit;font-size:16px;color:#0A0B0D;background:#F3F5F8;border:1px solid transparent;border-radius:12px;padding:15px 14px;width:100%;min-width:0}
+.form input:focus{outline:none;border-color:#027FFF;background:#fff}
+.form input::placeholder{color:rgba(10,11,13,.45)}
+.go{all:unset;box-sizing:border-box;cursor:pointer;background:#0A0B0D;color:#fff;font-weight:700;font-size:16px;padding:15px 22px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:transform .15s}
+.go:hover{transform:translateY(-1px)}
+.go:focus-visible{outline:2px solid #027FFF;outline-offset:2px}
+.go svg{width:16px;height:16px}
+.size{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 4px 2px;font-size:13px;color:rgba(10,11,13,.6);text-align:left}
+.size label{display:block}
+.size input{position:absolute;opacity:0;pointer-events:none}
+.size span{display:inline-block;padding:6px 10px;border-radius:8px;background:#F3F5F8;color:#0A0B0D;font-weight:600;cursor:pointer}
+.size input:checked+span{background:#027FFF;color:#fff}
+.size input:focus-visible+span{outline:2px solid #027FFF;outline-offset:2px}
+.err{grid-column:1/-1;color:#E0301E;font-size:13px;text-align:left;padding-inline:6px}
+.fine{margin-top:14px;font-size:12px;color:rgba(10,11,13,.55)}
+.done{margin:32px auto 0;max-width:520px;background:#fff;border-radius:18px;padding:26px;text-align:left;box-shadow:0 20px 50px -20px rgba(2,60,140,.35)}
+.done b{display:block;font-size:20px;font-weight:800;margin-bottom:6px}
+.done p{color:rgba(10,11,13,.65)}
+
+.proof{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 22px;margin-top:28px;font-size:14px;font-weight:600;color:rgba(10,11,13,.75)}
+.proof span{display:inline-flex;align-items:center;gap:7px}
+.proof span::before{content:"";width:16px;height:16px;border-radius:50%;background:#0A0B0D url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%23C8FF3A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+
+/* section */
+.sec{padding-block:80px 24px}
+.sec h2{font-size:clamp(28px,4.4vw,46px);font-weight:900;line-height:1.04;text-align:center;max-width:18ch;margin-inline:auto}
+.sec .sub{text-align:center;color:var(--muted);margin:14px auto 0;max-width:36em;font-size:17px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.c{background:var(--soft);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--blue-soft);color:var(--blue)}
+.ic svg{width:20px;height:20px}
+.was{font-size:15px;color:var(--muted);text-decoration:line-through;text-decoration-color:var(--coral);text-decoration-thickness:2px}
+.c h3{font-size:21px;font-weight:800;line-height:1.15}
+.c p{color:var(--muted);font-size:15px}
+.c .res{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);font-size:14px;font-weight:600;color:var(--ink)}
+.c .res i{font-style:normal;color:var(--blue)}
+
+/* call band */
+.call{margin-block:56px 40px;background:var(--dark);color:var(--on-dark);border-radius:28px;padding:44px 24px;display:grid;grid-template-columns:1.15fr .85fr;gap:36px;align-items:center;position:relative;overflow:hidden}
+.call::after{content:"";position:absolute;width:420px;height:420px;right:-140px;top:-180px;border-radius:50%;background:radial-gradient(circle,rgba(2,127,255,.55),rgba(2,127,255,0) 65%);pointer-events:none}
+.call>*{position:relative;z-index:1;min-width:0}
+.tag{display:inline-block;background:var(--lime);color:#0A0B0D;font-size:13px;font-weight:700;border-radius:8px;padding:6px 10px;margin-bottom:18px}
+.call h2{font-size:clamp(28px,4vw,44px);font-weight:900;line-height:1.04;text-align:left;margin:0;max-width:16ch}
+.call .lead{margin-top:14px;color:rgba(255,255,255,.7);font-size:16px;max-width:30em}
+.gifts{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:10px}
+.gifts li{display:flex;gap:10px;align-items:flex-start;font-size:16px}
+.gifts li::before{content:"+";flex:none;width:22px;height:22px;border-radius:6px;background:rgba(200,255,58,.16);color:var(--lime);display:grid;place-items:center;font-weight:800;font-size:14px;line-height:1}
+.box{background:#FFFFFF;color:#0A0B0D;border-radius:20px;padding:24px}
+.box .k{font-size:14px;color:rgba(10,11,13,.6)}
+.phone{font-size:clamp(26px,3.2vw,34px);font-weight:900;letter-spacing:-.02em;margin:4px 0 16px;font-variant-numeric:tabular-nums;user-select:all}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts a,.acts button{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;font-weight:700;font-size:15px;padding:14px 16px;border-radius:12px;flex:1 1 130px}
+.acts a{background:#027FFF;color:#fff}
+.acts button{background:#F3F5F8}
+.acts a:focus-visible,.acts button:focus-visible{outline:2px solid #0A0B0D;outline-offset:2px}
+.code{margin-top:16px;padding:12px 14px;border-radius:12px;background:#F4FFE0;font-size:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.code b{letter-spacing:.12em;font-weight:800}
+.hours{margin-top:10px;font-size:13px;color:rgba(10,11,13,.55)}
+
+footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:center}
+
+/* sticky mobile CTA */
+.stick{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));background:linear-gradient(to top,var(--bg) 60%,transparent);display:none}
+.stick a{display:block;text-align:center;background:#027FFF;color:#fff;font-weight:700;padding:15px;border-radius:14px;text-decoration:none}
+
+@media (max-width:860px){
+  .cards{grid-template-columns:1fr}
+  .call{grid-template-columns:1fr;padding:32px 20px}
+}
+@media (max-width:640px){
+  .form{grid-template-columns:1fr}
+  .hero{padding-block:40px 28px;border-radius:22px}
+  .top-cta{display:none}
+  .stick{display:block}
+  .stick[hidden]{display:none}
+}
+@media (prefers-reduced-motion:reduce){.go{transition:none}}
+</style>
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="logo" href="#form" aria-label="Be Soft"><span class="mark">Bs<i>.</i></span></a>
+  <div class="top-r">
+    <div class="lang" role="group" aria-label="Til / Язык">
+      <button type="button" data-set="uz" aria-pressed="false">UZ</button>
+      <button type="button" data-set="ru" aria-pressed="true">RU</button>
+    </div>
+    <a class="top-cta" href="#call" data-i="topCall"></a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero" id="form">
+    <div class="badges">
+      <span class="badge"><span class="dot"></span><span data-i="b1"></span></span>
+      <span class="badge"><span class="hot" data-i="b2a"></span><span data-i="b2"></span></span>
+    </div>
+    <h1 data-i="h1"></h1>
+    <p class="sub" data-i="sub"></p>
+
+    <form class="form" id="leadForm" novalidate>
+      <input type="text" id="f-name" autocomplete="name" data-ph="name" aria-label="Name">
+      <input type="tel" id="f-phone" autocomplete="tel" inputmode="tel" value="+998 " aria-label="Phone">
+      <button class="go" type="submit"><span data-i="submit"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="size" role="group" aria-labelledby="sizeL">
+        <span id="sizeL" data-i="sizeL" style="background:none;padding:0 4px 0 2px;color:inherit;font-weight:500;cursor:default"></span>
+        <label><input type="radio" name="size" id="s1" value="1-2"><span>1–2</span></label>
+        <label><input type="radio" name="size" id="s2" value="3-5"><span>3–5</span></label>
+        <label><input type="radio" name="size" id="s3" value="6-15"><span>6–15</span></label>
+        <label><input type="radio" name="size" id="s4" value="15+"><span>15+</span></label>
+      </div>
+      <p class="err" id="err" hidden></p>
+    </form>
+    <div class="done" id="done" hidden><b data-i="doneT"></b><p data-i="doneP"></p></div>
+    <p class="fine" data-i="fine"></p>
+
+    <div class="proof">
+      <span data-i="pr1"></span><span data-i="pr2"></span><span data-i="pr3"></span>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2 data-i="painT"></h2>
+    <p class="sub" data-i="painS"></p>
+    <div class="cards">
+      <article class="c">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/><path d="M16 2l6 6M22 2l-6 6"/></svg></div>
+        <p class="was" data-i="c1w"></p>
+        <h3 data-i="c1h"></h3>
+        <p data-i="c1p"></p>
+        <p class="res" data-i="c1r"></p>
+      </article>
+      <article class="c">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/></svg></div>
+        <p class="was" data-i="c2w"></p>
+        <h3 data-i="c2h"></h3>
+        <p data-i="c2p"></p>
+        <p class="res" data-i="c2r"></p>
+      </article>
+      <article class="c">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
+        <p class="was" data-i="c3w"></p>
+        <h3 data-i="c3h"></h3>
+        <p data-i="c3p"></p>
+        <p class="res" data-i="c3r"></p>
+      </article>
+    </div>
+  </section>
+
+  <section class="call" id="call">
+    <div>
+      <span class="tag" data-i="tag"></span>
+      <h2 data-i="callT"></h2>
+      <p class="lead" data-i="callL"></p>
+      <ul class="gifts"><li data-i="g1"></li><li data-i="g2"></li><li data-i="g3"></li></ul>
+    </div>
+    <div class="box">
+      <p class="k" data-i="boxK"></p>
+      <p class="phone" id="phoneText"></p>
+      <div class="acts">
+        <a id="callLink" href="#" data-i="callBtn"></a>
+        <button type="button" id="copyBtn" data-i="copy"></button>
+      </div>
+      <p class="code"><span data-i="codeK"></span><b>BESOFT</b></p>
+      <p class="hours" data-i="hours"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap" data-i="foot"></footer>
+<div class="stick" id="stick"><a href="#form" data-i="stick"></a></div>
+
+<script>
+/* ==== НАСТРОЙКИ ==== */
+const PHONE = "+998 90 000 00 00";   // номер Be Soft
+
+const T = {
+ru:{
+  topCall:"Позвонить",
+  b1:"Отвечаем за 15 минут", b2a:"Бесплатно", b2:"· аудит отдела продаж",
+  h1:"Вы теряете клиентов, которых уже оплатили рекламой",
+  sub:"Подключим amoCRM и телефонию за 7 дней. Каждая заявка, звонок и сделка будут у вас в телефоне, а не в голове менеджера.",
+  name:"Ваше имя", submit:"Получить аудит",
+  sizeL:"Менеджеров в продажах:",
+  errName:"Как к вам обращаться?", errPhone:"Проверьте номер: после +998 нужно 9 цифр.",
+  fine:"30 минут созвона. Покажем, где утекают заявки и сколько это стоит в сумах.",
+  doneT:"Заявка у нас", doneP:"Позвоним в течение 15 минут в рабочее время. Хотите быстрее — наберите сами и заберите бонус ниже.",
+  pr1:"Внедрение под ключ", pr2:"Обучение на узбекском и русском", pr3:"Поддержка после запуска",
+  painT:"Где бизнес теряет деньги прямо сейчас",
+  painS:"Чем больше менеджеров, тем меньше вы видите. Три места, где утекает выручка.",
+  c1w:"«Не успели перезвонить»", c1h:"Пропущенные звонки", c1p:"Клиент звонил вечером, никто не перезвонил, утром он уже купил у конкурента.",
+  c1r:"После: <i>каждый пропущенный</i> становится задачей менеджеру с таймером",
+  c2w:"«Таргет вроде работает»", c2h:"Реклама без цифр", c2p:"Бюджет уходит каждый месяц, но сколько продаж он принёс, никто не скажет.",
+  c2r:"После: <i>стоимость сделки</i> по каждому каналу в одном отчёте",
+  c3w:"«Спрошу у РОПа»", c3h:"Нет контроля", c3p:"Чтобы узнать план-факт, нужно звонить РОПу. В отпуске продажи проседают.",
+  c3r:"После: <i>воронка и записи звонков</i> в телефоне, 24/7",
+  tag:"Только по телефону",
+  callT:"Позвоните сами и получите больше",
+  callL:"Через форму этот бонус не действует. Назовите кодовое слово, и к внедрению добавим:",
+  g1:"Месяц техподдержки бесплатно", g2:"Интеграция Instagram и Telegram в подарок", g3:"Шаблон отчёта для собственника",
+  boxK:"Звоните прямо сейчас", callBtn:"Позвонить", copy:"Скопировать", copied:"Скопировано",
+  codeK:"Кодовое слово", hours:"Пн–Сб, 9:00–19:00 по Ташкенту",
+  stick:"Получить бесплатный аудит",
+  foot:"© Be Soft · Ташкент"
+},
+uz:{
+  topCall:"Qo‘ng‘iroq",
+  b1:"15 daqiqada javob beramiz", b2a:"Bepul", b2:"· savdo bo‘limi auditi",
+  h1:"Reklamaga pul to‘lagan mijozlaringizni yo‘qotyapsiz",
+  sub:"amoCRM va telefoniyani 7 kunda ulaymiz. Har bir ariza, qo‘ng‘iroq va bitim menejer xotirasida emas, sizning telefoningizda bo‘ladi.",
+  name:"Ismingiz", submit:"Audit olish",
+  sizeL:"Savdodagi menejerlar:",
+  errName:"Ismingizni kiriting.", errPhone:"Raqamni tekshiring: +998 dan keyin 9 ta raqam.",
+  fine:"30 daqiqalik suhbat. Arizalar qayerda yo‘qolayotganini va bu necha so‘m ekanini ko‘rsatamiz.",
+  doneT:"Arizangiz qabul qilindi", doneP:"Ish vaqtida 15 daqiqa ichida qo‘ng‘iroq qilamiz. Tezroq bo‘lsin desangiz — o‘zingiz qo‘ng‘iroq qiling va quyidagi bonusni oling.",
+  pr1:"To‘liq joriy qilish", pr2:"O‘zbek va rus tilida o‘qitish", pr3:"Ishga tushgandan keyin yordam",
+  painT:"Biznes hozir qayerda pul yo‘qotyapti",
+  painS:"Menejerlar qancha ko‘p bo‘lsa, siz shuncha kam ko‘rasiz. Daromad oqib ketadigan uchta joy.",
+  c1w:"«Qayta qo‘ng‘iroq qilishga ulgurmadik»", c1h:"O‘tkazib yuborilgan qo‘ng‘iroqlar", c1p:"Mijoz kechqurun qo‘ng‘iroq qildi, hech kim javob bermadi, ertalab u raqobatchidan sotib oldi.",
+  c1r:"Keyin: <i>har bir o‘tkazib yuborilgan</i> qo‘ng‘iroq menejerga taymerli vazifa bo‘ladi",
+  c2w:"«Target ishlayotganga o‘xshaydi»", c2h:"Raqamsiz reklama", c2p:"Har oy byudjet ketadi, lekin u qancha savdo keltirganini hech kim aytolmaydi.",
+  c2r:"Keyin: har bir kanal bo‘yicha <i>bitim narxi</i> bitta hisobotda",
+  c3w:"«ROPdan so‘rayman»", c3h:"Nazorat yo‘q", c3p:"Reja-faktni bilish uchun ROPga qo‘ng‘iroq qilish kerak. Ta’tilda savdo tushib ketadi.",
+  c3r:"Keyin: <i>voronka va qo‘ng‘iroq yozuvlari</i> telefoningizda, 24/7",
+  tag:"Faqat telefon orqali",
+  callT:"O‘zingiz qo‘ng‘iroq qiling va ko‘proq oling",
+  callL:"Bu bonus forma orqali amal qilmaydi. Kod so‘zini ayting va joriy qilishga qo‘shib beramiz:",
+  g1:"Bir oylik texnik yordam bepul", g2:"Instagram va Telegram integratsiyasi sovg‘a", g3:"Rahbar uchun hisobot shabloni",
+  boxK:"Hoziroq qo‘ng‘iroq qiling", callBtn:"Qo‘ng‘iroq qilish", copy:"Nusxalash", copied:"Nusxalandi",
+  codeK:"Kod so‘zi", hours:"Du–Sha, 9:00–19:00 (Toshkent vaqti)",
+  stick:"Bepul audit olish",
+  foot:"© Be Soft · Toshkent"
+}};
+
+let lang="ru";
+try{ lang=localStorage.getItem("besoft-lang") || ((navigator.language||"").startsWith("uz")?"uz":"ru"); }catch(e){}
+
+function render(){
+  const d=T[lang]; document.documentElement.lang=lang;
+  document.querySelectorAll("[data-i]").forEach(el=>{const v=d[el.dataset.i]; if(v!=null) el.innerHTML=v;});
+  document.querySelectorAll("[data-ph]").forEach(el=>el.placeholder=d[el.dataset.ph]);
+  document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.set===lang));
+  const e=document.getElementById("err"); if(!e.hidden) e.textContent=d[e.dataset.k];
+}
+document.querySelectorAll(".lang button").forEach(b=>b.addEventListener("click",()=>{
+  lang=b.dataset.set; try{localStorage.setItem("besoft-lang",lang)}catch(e){} render();
+}));
+
+document.getElementById("phoneText").textContent=PHONE;
+document.getElementById("callLink").href="tel:"+PHONE.replace(/\s/g,"");
+
+const phoneIn=document.getElementById("f-phone");
+phoneIn.addEventListener("input",()=>{
+  let d=phoneIn.value.replace(/\D/g,""); if(!d.startsWith("998")) d="998"+d; d=d.slice(0,12);
+  const p=d.slice(3); phoneIn.value="+998 "+[p.slice(0,2),p.slice(2,5),p.slice(5,7),p.slice(7,9)].filter(Boolean).join(" ");
+});
+
+document.getElementById("leadForm").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const err=document.getElementById("err");
+  const name=document.getElementById("f-name").value.trim();
+  const digits=phoneIn.value.replace(/\D/g,"");
+  const k=!name?"errName":digits.length!==12?"errPhone":null;
+  if(k){err.dataset.k=k;err.textContent=T[lang][k];err.hidden=false;return;}
+  err.hidden=true;
+  const sz=document.querySelector('input[name="size"]:checked');
+  const lead={name,phone:"+"+digits,managers:sz?sz.value:"",lang,source:"besoft-landing",at:new Date().toISOString()};
+  /* Сюда подключается отправка заявки: вебхук amoCRM, Telegram-бот или форма Tilda */
+  console.log("lead",lead);
+  ev.target.hidden=true; document.getElementById("done").hidden=false;
+});
+
+document.getElementById("copyBtn").addEventListener("click",async e=>{
+  const b=e.currentTarget;
+  try{await navigator.clipboard.writeText(PHONE); b.textContent=T[lang].copied; setTimeout(()=>b.textContent=T[lang].copy,1600);}
+  catch(_){const r=document.createRange(); r.selectNodeContents(document.getElementById("phoneText")); const s=getSelection(); s.removeAllRanges(); s.addRange(r);}
+});
+
+/* sticky CTA hides while the form is on screen */
+const stick=document.getElementById("stick");
+if("IntersectionObserver" in window){
+  new IntersectionObserver(([en])=>{stick.hidden=en.isIntersecting;},{threshold:.15}).observe(document.getElementById("form"));
+}
+render();
+</script>
+
+</body>
+</html>
