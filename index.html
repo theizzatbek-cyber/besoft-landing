@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Be Soft — amoCRM и телефония для бизнеса в Ташкенте</title>
-<meta name="description" content="Подключим amoCRM и телефонию за 7 дней. Бесплатный аудит отдела продаж.">
+<meta name="description" content="Подключим amoCRM и телефонию за 3 дня. Бесплатный аудит отдела продаж.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23027FFF'/%3E%3Ctext x='8' y='44' font-family='Arial' font-weight='900' font-size='32' fill='white'%3EBs.%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800;900&display=swap">
@@ -115,6 +115,20 @@ p{margin:0}
 .code b{letter-spacing:.12em;font-weight:800}
 .hours{margin-top:10px;font-size:13px;color:rgba(10,11,13,.55)}
 
+.partner{margin-block:0 40px;padding:32px 24px;border-radius:28px;background:var(--soft);display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}
+.partner>*{min-width:0}
+.pbadge{display:inline-flex;align-items:center;gap:8px;background:var(--card);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;margin-bottom:16px}
+.pbadge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.partner h2{font-size:clamp(26px,3.4vw,38px);font-weight:900;line-height:1.05;margin:0;max-width:16ch}
+.partner p{margin-top:12px;color:var(--muted);font-size:16px;max-width:32em}
+.pid{font-size:14px;font-variant-numeric:tabular-nums}
+.pid b{color:var(--ink)}
+.certs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.certs a{display:block;border-radius:14px;overflow:hidden;box-shadow:0 12px 30px -16px rgba(10,20,40,.5);transition:transform .2s}
+.certs a:hover{transform:translateY(-3px)}
+.certs img{display:block;width:100%;height:auto}
+@media (max-width:860px){.partner{grid-template-columns:1fr;padding:28px 20px}}
+
 footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:center}
 
 /* sticky mobile CTA */
@@ -162,13 +176,6 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
       <input type="text" id="f-name" autocomplete="name" data-ph="name" aria-label="Name">
       <input type="tel" id="f-phone" autocomplete="tel" inputmode="tel" value="+998 " aria-label="Phone">
       <button class="go" type="submit"><span data-i="submit"></span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <div class="size" role="group" aria-labelledby="sizeL">
-        <span id="sizeL" data-i="sizeL" style="background:none;padding:0 4px 0 2px;color:inherit;font-weight:500;cursor:default"></span>
-        <label><input type="radio" name="size" id="s1" value="1-2"><span>1–2</span></label>
-        <label><input type="radio" name="size" id="s2" value="3-5"><span>3–5</span></label>
-        <label><input type="radio" name="size" id="s3" value="6-15"><span>6–15</span></label>
-        <label><input type="radio" name="size" id="s4" value="15+"><span>15+</span></label>
-      </div>
       <p class="err" id="err" hidden></p>
     </form>
     <div class="done" id="done" hidden><b data-i="doneT"></b><p data-i="doneP"></p></div>
@@ -225,6 +232,18 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
       <p class="hours" data-i="hours"></p>
     </div>
   </section>
+  <section class="partner" id="partner">
+    <div>
+      <span class="pbadge" data-i="pTag"></span>
+      <h2 data-i="pT"></h2>
+      <p data-i="pP"></p>
+      <p class="pid"><span data-i="pIdK"></span> <b>28651202</b></p>
+    </div>
+    <div class="certs">
+      <a href="cert-besoft.webp" target="_blank" rel="noopener"><img src="cert-besoft.webp" alt="Сертификат партнёра amoCRM: Be Soft" width="560" height="432" loading="lazy"></a>
+      <a href="cert-izzat.webp" target="_blank" rel="noopener"><img src="cert-izzat.webp" alt="Сертификат партнёра amoCRM: Izzat Aliyev" width="560" height="432" loading="lazy"></a>
+    </div>
+  </section>
 </main>
 
 <footer class="wrap" data-i="foot"></footer>
@@ -239,13 +258,12 @@ ru:{
   topCall:"Позвонить",
   b1:"Отвечаем за 15 минут", b2a:"Бесплатно", b2:"· аудит отдела продаж",
   h1:"Вы теряете клиентов, которых уже оплатили рекламой",
-  sub:"Подключим amoCRM и телефонию за 7 дней. Каждая заявка, звонок и сделка будут у вас в телефоне, а не в голове менеджера.",
+  sub:"Подключим amoCRM и телефонию за 3 дня. Каждая заявка, звонок и сделка будут у вас в телефоне, а не в голове менеджера.",
   name:"Ваше имя", submit:"Получить аудит",
-  sizeL:"Менеджеров в продажах:",
   errName:"Как к вам обращаться?", errPhone:"Проверьте номер: после +998 нужно 9 цифр.",
   fine:"30 минут созвона. Покажем, где утекают заявки и сколько это стоит в сумах.",
   doneT:"Заявка у нас", doneP:"Позвоним в течение 15 минут в рабочее время. Хотите быстрее — наберите сами и заберите бонус ниже.",
-  pr1:"Внедрение под ключ", pr2:"Обучение на узбекском и русском", pr3:"Поддержка после запуска",
+  pr1:"Официальный партнёр amoCRM", pr2:"Обучение на узбекском и русском", pr3:"Поддержка после запуска",
   painT:"Где бизнес теряет деньги прямо сейчас",
   painS:"Чем больше менеджеров, тем меньше вы видите. Три места, где утекает выручка.",
   c1w:"«Не успели перезвонить»", c1h:"Пропущенные звонки", c1p:"Клиент звонил вечером, никто не перезвонил, утром он уже купил у конкурента.",
@@ -261,19 +279,19 @@ ru:{
   boxK:"Звоните прямо сейчас", callBtn:"Позвонить", copy:"Скопировать", copied:"Скопировано",
   codeK:"Кодовое слово", hours:"Пн–Сб, 9:00–19:00 по Ташкенту",
   stick:"Получить бесплатный аудит",
-  foot:"© Be Soft · Ташкент"
+  pTag:"Официальный партнёр amoCRM", pT:"Сертифицированный партнёр программы amoSTART", pP:"Компания Be Soft и наш специалист сертифицированы amoCRM. Внедряем систему по стандартам самой amoCRM.", pIdK:"ID партнёра:",
+  foot:"© Be Soft · Ташкент · Официальный партнёр amoCRM"
 },
 uz:{
   topCall:"Qo‘ng‘iroq",
   b1:"15 daqiqada javob beramiz", b2a:"Bepul", b2:"· savdo bo‘limi auditi",
   h1:"Reklamaga pul to‘lagan mijozlaringizni yo‘qotyapsiz",
-  sub:"amoCRM va telefoniyani 7 kunda ulaymiz. Har bir ariza, qo‘ng‘iroq va bitim menejer xotirasida emas, sizning telefoningizda bo‘ladi.",
+  sub:"amoCRM va telefoniyani 3 kunda ulaymiz. Sotuvlaringizni aniq raqamlar asosida boshqarasiz.",
   name:"Ismingiz", submit:"Audit olish",
-  sizeL:"Savdodagi menejerlar:",
   errName:"Ismingizni kiriting.", errPhone:"Raqamni tekshiring: +998 dan keyin 9 ta raqam.",
   fine:"30 daqiqalik suhbat. Arizalar qayerda yo‘qolayotganini va bu necha so‘m ekanini ko‘rsatamiz.",
   doneT:"Arizangiz qabul qilindi", doneP:"Ish vaqtida 15 daqiqa ichida qo‘ng‘iroq qilamiz. Tezroq bo‘lsin desangiz — o‘zingiz qo‘ng‘iroq qiling va quyidagi bonusni oling.",
-  pr1:"To‘liq joriy qilish", pr2:"O‘zbek va rus tilida o‘qitish", pr3:"Ishga tushgandan keyin yordam",
+  pr1:"amoCRM rasmiy hamkori", pr2:"O‘zbek va rus tilida o‘qitish", pr3:"Ishga tushgandan keyin yordam",
   painT:"Biznes hozir qayerda pul yo‘qotyapti",
   painS:"Menejerlar qancha ko‘p bo‘lsa, siz shuncha kam ko‘rasiz. Daromad oqib ketadigan uchta joy.",
   c1w:"«Qayta qo‘ng‘iroq qilishga ulgurmadik»", c1h:"O‘tkazib yuborilgan qo‘ng‘iroqlar", c1p:"Mijoz kechqurun qo‘ng‘iroq qildi, hech kim javob bermadi, ertalab u raqobatchidan sotib oldi.",
@@ -289,7 +307,8 @@ uz:{
   boxK:"Hoziroq qo‘ng‘iroq qiling", callBtn:"Qo‘ng‘iroq qilish", copy:"Nusxalash", copied:"Nusxalandi",
   codeK:"Kod so‘zi", hours:"Du–Sha, 9:00–19:00 (Toshkent vaqti)",
   stick:"Bepul audit olish",
-  foot:"© Be Soft · Toshkent"
+  pTag:"amoCRM rasmiy hamkori", pT:"amoSTART dasturining sertifikatlangan hamkori", pP:"Be Soft kompaniyasi va mutaxassisimiz amoCRM tomonidan sertifikatlangan. Tizimni amoCRM standartlari asosida joriy qilamiz.", pIdK:"Hamkor ID:",
+  foot:"© Be Soft · Toshkent · amoCRM rasmiy hamkori"
 }};
 
 let lang="ru";
@@ -323,8 +342,7 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   const k=!name?"errName":digits.length!==12?"errPhone":null;
   if(k){err.dataset.k=k;err.textContent=T[lang][k];err.hidden=false;return;}
   err.hidden=true;
-  const sz=document.querySelector('input[name="size"]:checked');
-  const lead={name,phone:"+"+digits,managers:sz?sz.value:"",lang,source:"besoft-landing",at:new Date().toISOString()};
+  const lead={name,phone:"+"+digits,lang,source:"besoft-landing",at:new Date().toISOString()};
   /* Сюда подключается отправка заявки: вебхук amoCRM, Telegram-бот или форма Tilda */
   console.log("lead",lead);
   ev.target.hidden=true; document.getElementById("done").hidden=false;
