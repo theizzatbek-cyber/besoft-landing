@@ -3,6 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=113791518', 'ym');
+
+    ym(113791518, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/113791518" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 <title>Be Soft — amoCRM и телефония для бизнеса в Ташкенте</title>
 <meta name="description" content="Подключим amoCRM и телефонию за 3 дня. Бесплатный аудит отдела продаж.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23027FFF'/%3E%3Ctext x='8' y='44' font-family='Arial' font-weight='900' font-size='32' fill='white'%3EBs.%3C/text%3E%3C/svg%3E">
@@ -378,6 +391,7 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   const lead={name,phone:"+"+digits,lang,source:"besoft-landing",at:new Date().toISOString()};
   /* Сюда подключается отправка заявки: вебхук amoCRM, Telegram-бот или форма Tilda */
   console.log("lead",lead);
+  goal("lead_form");
   ev.target.hidden=true; document.getElementById("done").hidden=false;
 });
 
@@ -388,6 +402,11 @@ if("IntersectionObserver" in window){
   const io=new IntersectionObserver(es=>{es.forEach(en=>en.isIntersecting?seen.add(en.target):seen.delete(en.target));stick.hidden=seen.size>0;},{threshold:.15});
   io.observe(document.getElementById("form")); io.observe(document.getElementById("call"));
 }
+/* Yandex.Metrika goals */
+function goal(n){try{if(window.ym) ym(113791518,"reachGoal",n);}catch(e){}}
+document.querySelectorAll(".dial").forEach(a=>a.addEventListener("click",()=>goal("call_click")));
+document.getElementById("tgLink").addEventListener("click",()=>goal("tg_click"));
+
 /* timer: 15 minutes from the moment the visitor opened the site */
 function tick(){
   const el=document.getElementById("tVal"), lbl=document.querySelector("[data-i=tLabel]");
