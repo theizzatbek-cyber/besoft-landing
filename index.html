@@ -100,20 +100,34 @@ p{margin:0}
 .tag{display:inline-block;background:var(--lime);color:#0A0B0D;font-size:13px;font-weight:700;border-radius:8px;padding:6px 10px;margin-bottom:18px}
 .call h2{font-size:clamp(28px,4vw,44px);font-weight:900;line-height:1.04;text-align:left;margin:0;max-width:16ch}
 .call .lead{margin-top:14px;color:rgba(255,255,255,.7);font-size:16px;max-width:30em}
-.gifts{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:10px}
-.gifts li{display:flex;gap:10px;align-items:flex-start;font-size:16px}
-.gifts li::before{content:"+";flex:none;width:22px;height:22px;border-radius:6px;background:rgba(200,255,58,.16);color:var(--lime);display:grid;place-items:center;font-weight:800;font-size:14px;line-height:1}
+.gift{margin-top:24px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:20px}
+.gift-h{display:flex;gap:12px;align-items:flex-start}
+.gift-ic{flex:none;width:40px;height:40px;border-radius:12px;background:var(--lime);color:#0A0B0D;display:grid;place-items:center}
+.gift-ic svg{width:22px;height:22px}
+.gift h3{font-size:19px;font-weight:800;line-height:1.2;margin:0}
+.gift p{margin-top:6px;color:rgba(255,255,255,.7);font-size:15px}
+.periods{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.periods span{font-size:13px;font-weight:600;padding:6px 10px;border-radius:8px;background:rgba(200,255,58,.14);color:var(--lime)}
+.rnp-wrap{margin-top:16px;overflow-x:auto}
+.rnp{background:#F4F4F2;color:#0A0B0D;border-radius:12px;overflow:hidden;font-size:13px;font-variant-numeric:tabular-nums}
+.rnp div{display:grid;grid-template-columns:1.7fr 1fr 1fr .6fr}
+.rnp span{padding:7px 10px;border-top:1px solid #E2E2DE;text-align:right;white-space:nowrap}
+.rnp span:first-child{text-align:left;white-space:normal}
+.rnp .h span{background:#0A0B0D;color:#fff;font-weight:700;border-top:0}
+.rnp .g{background:#CFEBDD}
+.rnp .w{background:#FBE3CC}
+.gift .rnp-cap{margin-top:8px;font-size:12px;color:rgba(255,255,255,.5)}
 .box{background:#FFFFFF;color:#0A0B0D;border-radius:20px;padding:24px}
-.box .k{font-size:14px;color:rgba(10,11,13,.6)}
-.phone{font-size:clamp(26px,3.2vw,34px);font-weight:900;letter-spacing:-.02em;margin:4px 0 16px;font-variant-numeric:tabular-nums;user-select:all}
-.acts{display:flex;gap:8px;flex-wrap:wrap}
-.acts a,.acts button{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;font-weight:700;font-size:15px;padding:14px 16px;border-radius:12px;flex:1 1 130px}
-.acts a{background:#027FFF;color:#fff}
-.acts button{background:#F3F5F8}
-.acts a:focus-visible,.acts button:focus-visible{outline:2px solid #0A0B0D;outline-offset:2px}
-.code{margin-top:16px;padding:12px 14px;border-radius:12px;background:#F4FFE0;font-size:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.code b{letter-spacing:.12em;font-weight:800}
-.hours{margin-top:10px;font-size:13px;color:rgba(10,11,13,.55)}
+.mgr{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.ava{width:44px;height:44px;border-radius:50%;background:#027FFF;color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;flex:none}
+.mgr b{display:block;font-size:17px;font-weight:800}
+.mgr span{font-size:13px;color:rgba(10,11,13,.6)}
+.line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:12px;border-top:1px solid #ECEDEF;flex-wrap:wrap}
+.phone{font-size:clamp(20px,2.4vw,24px);font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;user-select:all}
+.dial{display:inline-flex;align-items:center;gap:8px;background:#027FFF;color:#fff;font-weight:700;font-size:15px;padding:12px 16px;border-radius:12px;text-decoration:none}
+.dial svg{width:18px;height:18px}
+.dial:focus-visible{outline:2px solid #0A0B0D;outline-offset:2px}
+.hours{padding-top:12px;border-top:1px solid #ECEDEF;font-size:13px;color:rgba(10,11,13,.55)}
 
 .partner{margin-block:0 40px;padding:32px 24px;border-radius:28px;background:var(--soft);display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}
 .partner>*{min-width:0}
@@ -145,6 +159,9 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
   .top-cta{display:none}
   .stick{display:block}
   .stick[hidden]{display:none}
+  .rnp{font-size:12px}
+  .rnp div{grid-template-columns:1.5fr 1fr 1fr .65fr}
+  .rnp span{padding:6px}
 }
 @media (prefers-reduced-motion:reduce){.go{transition:none}}
 </style>
@@ -191,25 +208,19 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
     <p class="sub" data-i="painS"></p>
     <div class="cards">
       <article class="c">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/><path d="M16 2l6 6M22 2l-6 6"/></svg></div>
-        <p class="was" data-i="c1w"></p>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></div>
         <h3 data-i="c1h"></h3>
         <p data-i="c1p"></p>
-        <p class="res" data-i="c1r"></p>
       </article>
       <article class="c">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/></svg></div>
-        <p class="was" data-i="c2w"></p>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg></div>
         <h3 data-i="c2h"></h3>
         <p data-i="c2p"></p>
-        <p class="res" data-i="c2r"></p>
       </article>
       <article class="c">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg></div>
-        <p class="was" data-i="c3w"></p>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg></div>
         <h3 data-i="c3h"></h3>
         <p data-i="c3p"></p>
-        <p class="res" data-i="c3r"></p>
       </article>
     </div>
   </section>
@@ -219,16 +230,28 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
       <span class="tag" data-i="tag"></span>
       <h2 data-i="callT"></h2>
       <p class="lead" data-i="callL"></p>
-      <ul class="gifts"><li data-i="g1"></li><li data-i="g2"></li><li data-i="g3"></li></ul>
+      <div class="gift">
+        <div class="gift-h">
+          <span class="gift-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1s6 1 6 1zm0 0c2-4 6-4 6-1s-6 1-6 1z"/></svg></span>
+          <div><h3 data-i="gT"></h3><p data-i="gP"></p></div>
+        </div>
+        <div class="periods"><span data-i="per1"></span><span data-i="per2"></span><span data-i="per3"></span></div>
+        <div class="rnp-wrap"><div class="rnp">
+          <div class="h"><span data-i="rM"></span><span data-i="rPlan"></span><span data-i="rFact"></span><span>%</span></div>
+          <div><span data-i="r1"></span><span>600 000</span><span>192 000</span><span class="g">32%</span></div>
+          <div><span data-i="r2"></span><span>240</span><span>231</span><span class="w">96%</span></div>
+          <div><span data-i="r3"></span><span>168</span><span>123</span><span class="w">73%</span></div>
+          <div><span data-i="r4"></span><span>2 500</span><span>831</span><span class="g">33%</span></div>
+          <div><span data-i="r5"></span><span>43</span><span>20</span><span class="w">47%</span></div>
+          <div><span data-i="r6"></span><span>1 505 000</span><span>600 000</span><span class="w">40%</span></div>
+        </div></div>
+        <p class="rnp-cap" data-i="rCap"></p>
+      </div>
     </div>
     <div class="box">
-      <p class="k" data-i="boxK"></p>
-      <p class="phone" id="phoneText"></p>
-      <div class="acts">
-        <a id="callLink" href="#" data-i="callBtn"></a>
-        <button type="button" id="copyBtn" data-i="copy"></button>
-      </div>
-      <p class="code"><span data-i="codeK"></span><b>BESOFT</b></p>
+      <div class="mgr"><span class="ava" data-i="mIni"></span><div><b data-i="mName"></b><span data-i="mRole"></span></div></div>
+      <div class="line"><span class="phone">+998 70 030 00 71</span><a class="dial" href="tel:+998700300071"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span data-i="callBtn"></span></a></div>
+      <div class="line"><span class="phone">+998 33 373 31 03</span><a class="dial" href="tel:+998333733103"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span data-i="callBtn"></span></a></div>
       <p class="hours" data-i="hours"></p>
     </div>
   </section>
@@ -240,8 +263,8 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
       <p class="pid"><span data-i="pIdK"></span> <b>28651202</b></p>
     </div>
     <div class="certs">
-      <a href="cert-besoft.webp" target="_blank" rel="noopener"><img src="cert-besoft.webp" alt="Сертификат партнёра amoCRM: Be Soft" width="560" height="432"></a>
-      <a href="cert-izzat.webp" target="_blank" rel="noopener"><img src="cert-izzat.webp" alt="Сертификат партнёра amoCRM: Izzat Aliyev" width="560" height="432"></a>
+      <a href="/cert-besoft.webp" target="_blank" rel="noopener"><img src="/cert-besoft.webp" alt="Сертификат партнёра amoCRM: Be Soft" width="560" height="432"></a>
+      <a href="/cert-izzat.webp" target="_blank" rel="noopener"><img src="/cert-izzat.webp" alt="Сертификат партнёра amoCRM: Izzat Aliyev" width="560" height="432"></a>
     </div>
   </section>
 </main>
@@ -250,9 +273,6 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
 <div class="stick" id="stick"><a href="#form" data-i="stick"></a></div>
 
 <script>
-/* ==== НАСТРОЙКИ ==== */
-const PHONE = "+998 90 000 00 00";   // номер Be Soft
-
 const T = {
 ru:{
   topCall:"Позвонить",
@@ -266,18 +286,17 @@ ru:{
   pr1:"Официальный партнёр amoCRM", pr2:"Обучение на узбекском и русском", pr3:"Поддержка после запуска",
   painT:"Где бизнес теряет деньги прямо сейчас",
   painS:"Чем больше менеджеров, тем меньше вы видите. Три места, где утекает выручка.",
-  c1w:"«Не успели перезвонить»", c1h:"Пропущенные звонки", c1p:"Клиент звонил вечером, никто не перезвонил, утром он уже купил у конкурента.",
-  c1r:"После: <i>каждый пропущенный</i> становится задачей менеджеру с таймером",
-  c2w:"«Таргет вроде работает»", c2h:"Реклама без цифр", c2p:"Бюджет уходит каждый месяц, но сколько продаж он принёс, никто не скажет.",
-  c2r:"После: <i>стоимость сделки</i> по каждому каналу в одном отчёте",
-  c3w:"«Спрошу у РОПа»", c3h:"Нет контроля", c3p:"Чтобы узнать план-факт, нужно звонить РОПу. В отпуске продажи проседают.",
-  c3r:"После: <i>воронка и записи звонков</i> в телефоне, 24/7",
-  tag:"Только по телефону",
-  callT:"Позвоните сами и получите больше",
-  callL:"Через форму этот бонус не действует. Назовите кодовое слово, и к внедрению добавим:",
-  g1:"Месяц техподдержки бесплатно", g2:"Интеграция Instagram и Telegram в подарок", g3:"Шаблон отчёта для собственника",
-  boxK:"Звоните прямо сейчас", callBtn:"Позвонить", copy:"Скопировать", copied:"Скопировано",
-  codeK:"Кодовое слово", hours:"Пн–Сб, 9:00–19:00 по Ташкенту",
+  c1h:"Вы не знаете, как реально работают ваши менеджеры", c1p:"Менеджеры работают, звонки идут, но вы не знаете, насколько качественно они общаются с клиентами и почему не закрывают сделки.",
+  c2h:"Вы не контролируете, что происходит с лидами", c2p:"Не знаете, сколько заявок обработано, сколько потеряно и на каком этапе клиенты перестают отвечать. План продаж выполняется скорее по ощущениям, чем по цифрам.",
+  c3h:"Лиды есть, менеджеры есть, а продаж мало", c3p:"Вы не понимаете, в чём причина: маркетинг приводит нецелевых клиентов или менеджеры не умеют конвертировать заявки в продажи.",
+  tag:"Только при звонке",
+  callT:"Позвоните сами и получите подарок",
+  callL:"Через форму этот бонус не действует. Позвоните нам, и к внедрению amoCRM добавим:",
+  gT:"Таблица РнП «Рука на пульсе»", gP:"Интегрируем её с amoCRM: вы видите план и факт ключевых показателей отдела маркетинга и продаж.",
+  per1:"Ежедневно", per2:"Еженедельно", per3:"Ежемесячно",
+  rM:"Февраль", rPlan:"План", rFact:"Факт", r1:"Бюджет на маркетинг", r2:"Кол-во лидов", r3:"Квал. лиды", r4:"Стоимость лида", r5:"Кол-во продаж", r6:"Объём продаж", rCap:"Пример отчёта РнП",
+  mIni:"С", mName:"Сарвиноз", mRole:"Менеджер Be Soft", callBtn:"Позвонить",
+  hours:"Пн–Пт, 10:30–19:30 по Ташкенту",
   stick:"Получить бесплатный аудит",
   pTag:"Официальный партнёр amoCRM", pT:"Сертифицированный партнёр программы amoSTART", pP:"Компания Be Soft и наш специалист сертифицированы amoCRM. Внедряем систему по стандартам самой amoCRM.", pIdK:"ID партнёра:",
   foot:"© Be Soft · Ташкент · Официальный партнёр amoCRM"
@@ -294,18 +313,17 @@ uz:{
   pr1:"amoCRM rasmiy hamkori", pr2:"O‘zbek va rus tilida o‘qitish", pr3:"Ishga tushgandan keyin yordam",
   painT:"Biznes hozir qayerda pul yo‘qotyapti",
   painS:"Menejerlar qancha ko‘p bo‘lsa, siz shuncha kam ko‘rasiz. Daromad oqib ketadigan uchta joy.",
-  c1w:"«Qayta qo‘ng‘iroq qilishga ulgurmadik»", c1h:"O‘tkazib yuborilgan qo‘ng‘iroqlar", c1p:"Mijoz kechqurun qo‘ng‘iroq qildi, hech kim javob bermadi, ertalab u raqobatchidan sotib oldi.",
-  c1r:"Keyin: <i>har bir o‘tkazib yuborilgan</i> qo‘ng‘iroq menejerga taymerli vazifa bo‘ladi",
-  c2w:"«Target ishlayotganga o‘xshaydi»", c2h:"Raqamsiz reklama", c2p:"Har oy byudjet ketadi, lekin u qancha savdo keltirganini hech kim aytolmaydi.",
-  c2r:"Keyin: har bir kanal bo‘yicha <i>bitim narxi</i> bitta hisobotda",
-  c3w:"«ROPdan so‘rayman»", c3h:"Nazorat yo‘q", c3p:"Reja-faktni bilish uchun ROPga qo‘ng‘iroq qilish kerak. Ta’tilda savdo tushib ketadi.",
-  c3r:"Keyin: <i>voronka va qo‘ng‘iroq yozuvlari</i> telefoningizda, 24/7",
-  tag:"Faqat telefon orqali",
-  callT:"O‘zingiz qo‘ng‘iroq qiling va ko‘proq oling",
-  callL:"Bu bonus forma orqali amal qilmaydi. Kod so‘zini ayting va joriy qilishga qo‘shib beramiz:",
-  g1:"Bir oylik texnik yordam bepul", g2:"Instagram va Telegram integratsiyasi sovg‘a", g3:"Rahbar uchun hisobot shabloni",
-  boxK:"Hoziroq qo‘ng‘iroq qiling", callBtn:"Qo‘ng‘iroq qilish", copy:"Nusxalash", copied:"Nusxalandi",
-  codeK:"Kod so‘zi", hours:"Du–Sha, 9:00–19:00 (Toshkent vaqti)",
+  c1h:"Menejerlaringiz qanchalik samarali ishlayotganini bilmaysiz", c1p:"Qo‘ng‘iroqlar bo‘lyapti, lekin mijozlar bilan qanday gaplashilayotgani va nega savdolar yopilmayotgani noma’lum.",
+  c2h:"Lidlar bilan nima bo‘layotganini nazorat qila olmaysiz", c2p:"Qancha lid bilan ishlangan, qanchasi yo‘qotilgan va mijozlar qaysi bosqichda ketib qolayotgani noma’lum. Savdo rejasi aniq raqamlarga emas, taxminlarga asoslanadi.",
+  c3h:"Lidlar bor, menejerlar bor, lekin savdo kam", c3p:"Muammo nimada: marketing sifatsiz lidlarni olib kelyaptimi yoki menejerlar ularni xaridorga aylantira olmayaptimi — bilmaysiz.",
+  tag:"Faqat qo‘ng‘iroq orqali",
+  callT:"O‘zingiz qo‘ng‘iroq qiling va sovg‘a oling",
+  callL:"Bu bonus forma orqali amal qilmaydi. Bizga qo‘ng‘iroq qiling va amoCRM joriy qilishga qo‘shib beramiz:",
+  gT:"RnP jadvali («Рука на пульсе»)", gP:"Uni amoCRM bilan integratsiya qilamiz: marketing va savdo bo‘limining asosiy ko‘rsatkichlari bo‘yicha reja va faktni ko‘rasiz.",
+  per1:"Har kuni", per2:"Har hafta", per3:"Har oy",
+  rM:"Fevral", rPlan:"Reja", rFact:"Fakt", r1:"Marketing byudjeti", r2:"Lidlar soni", r3:"Sifatli lidlar", r4:"Lid narxi", r5:"Sotuvlar soni", r6:"Sotuv hajmi", rCap:"RnP hisoboti namunasi",
+  mIni:"S", mName:"Sarvinoz", mRole:"Be Soft menejeri", callBtn:"Qo‘ng‘iroq qilish",
+  hours:"Du–Ju, 10:30–19:30 (Toshkent vaqti)",
   stick:"Bepul audit olish",
   pTag:"amoCRM rasmiy hamkori", pT:"amoSTART dasturining sertifikatlangan hamkori", pP:"Be Soft kompaniyasi va mutaxassisimiz amoCRM tomonidan sertifikatlangan. Tizimni amoCRM standartlari asosida joriy qilamiz.", pIdK:"Hamkor ID:",
   foot:"© Be Soft · Toshkent · amoCRM rasmiy hamkori"
@@ -324,9 +342,6 @@ function render(){
 document.querySelectorAll(".lang button").forEach(b=>b.addEventListener("click",()=>{
   lang=b.dataset.set; try{localStorage.setItem("besoft-lang",lang)}catch(e){} render();
 }));
-
-document.getElementById("phoneText").textContent=PHONE;
-document.getElementById("callLink").href="tel:"+PHONE.replace(/\s/g,"");
 
 const phoneIn=document.getElementById("f-phone");
 phoneIn.addEventListener("input",()=>{
@@ -348,16 +363,12 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   ev.target.hidden=true; document.getElementById("done").hidden=false;
 });
 
-document.getElementById("copyBtn").addEventListener("click",async e=>{
-  const b=e.currentTarget;
-  try{await navigator.clipboard.writeText(PHONE); b.textContent=T[lang].copied; setTimeout(()=>b.textContent=T[lang].copy,1600);}
-  catch(_){const r=document.createRange(); r.selectNodeContents(document.getElementById("phoneText")); const s=getSelection(); s.removeAllRanges(); s.addRange(r);}
-});
-
 /* sticky CTA hides while the form is on screen */
 const stick=document.getElementById("stick");
 if("IntersectionObserver" in window){
-  new IntersectionObserver(([en])=>{stick.hidden=en.isIntersecting;},{threshold:.15}).observe(document.getElementById("form"));
+  const seen=new Set();
+  const io=new IntersectionObserver(es=>{es.forEach(en=>en.isIntersecting?seen.add(en.target):seen.delete(en.target));stick.hidden=seen.size>0;},{threshold:.15});
+  io.observe(document.getElementById("form")); io.observe(document.getElementById("call"));
 }
 render();
 </script>
