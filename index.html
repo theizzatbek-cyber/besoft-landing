@@ -117,6 +117,12 @@ p{margin:0}
 .rnp .g{background:#CFEBDD}
 .rnp .w{background:#FBE3CC}
 .gift .rnp-cap{margin-top:8px;font-size:12px;color:rgba(255,255,255,.5)}
+.tg{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--lime);color:#0A0B0D;font-weight:700;font-size:15px;padding:14px 16px;border-radius:12px;text-decoration:none}
+.tg svg{width:18px;height:18px}
+.tg:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.timer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;width:fit-content;max-width:100%;margin:0 auto 10px;padding:8px 14px;border-radius:12px;background:#0A0B0D;color:#fff;font-size:13px;font-weight:600;text-align:center}
+.timer b{color:#C8FF3A;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.tdot{width:7px;height:7px;border-radius:50%;background:#FF4D3D;box-shadow:0 0 0 3px rgba(255,77,61,.25)}
 .box{background:#FFFFFF;color:#0A0B0D;border-radius:20px;padding:24px}
 .mgr{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .ava{width:44px;height:44px;border-radius:50%;background:#027FFF;color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;flex:none}
@@ -155,7 +161,11 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
 }
 @media (max-width:640px){
   .form{grid-template-columns:1fr}
-  .hero{padding-block:40px 28px;border-radius:22px}
+  .hero{padding-block:32px 24px;padding-inline:16px;border-radius:22px;text-align:left}
+  .badges{justify-content:flex-start}
+  .hero h1{font-size:7.4vw;letter-spacing:-.04em;max-width:none;margin-inline:0;text-wrap:wrap}
+  .hero .sub{margin-inline:0}
+  .proof{justify-content:flex-start}
   .top-cta{display:none}
   .stick{display:block}
   .stick[hidden]{display:none}
@@ -181,6 +191,7 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
 </header>
 
 <main class="wrap">
+  <div class="timer" role="timer"><span class="tdot" aria-hidden="true"></span><span data-i="tLabel"></span><b id="tVal">15:00</b></div>
   <section class="hero" id="form">
     <div class="badges">
       <span class="badge"><span class="dot"></span><span data-i="b1"></span></span>
@@ -246,6 +257,7 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
           <div><span data-i="r6"></span><span>1 505 000</span><span>600 000</span><span class="w">40%</span></div>
         </div></div>
         <p class="rnp-cap" data-i="rCap"></p>
+        <a class="tg" id="tgLink" href="https://t.me/sarvinoz_besoft" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.5c-.2 1-.9 1.3-1.7.8l-4.8-3.6-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9 8.9-8c.4-.3-.1-.5-.6-.2L6.5 13.3 1.8 11.8c-1-.3-1-1 .2-1.5L20.6 3.2c.9-.3 1.6.2 1.3 1.1z"/></svg><span data-i="tgBtn"></span></a>
       </div>
     </div>
     <div class="box">
@@ -298,6 +310,8 @@ ru:{
   mIni:"С", mName:"Сарвиноз", mRole:"Менеджер Be Soft", callBtn:"Позвонить",
   hours:"Пн–Пт, 10:30–19:30 по Ташкенту",
   stick:"Получить бесплатный аудит",
+  tLabel:"Аудит закреплён за вами ещё", tEnd:"Успейте оставить заявку на бесплатный аудит",
+  tgBtn:"Написать менеджеру в Telegram", tgText:"Здравствуйте! Хочу интегрировать amoCRM в свою компанию и обсудить все детали.",
   pTag:"Официальный партнёр amoCRM", pT:"Сертифицированный партнёр программы amoSTART", pP:"Компания Be Soft и наш специалист сертифицированы amoCRM. Внедряем систему по стандартам самой amoCRM.", pIdK:"ID партнёра:",
   foot:"© Be Soft · Ташкент · Официальный партнёр amoCRM"
 },
@@ -306,7 +320,7 @@ uz:{
   b1:"15 daqiqada javob beramiz", b2a:"Bepul", b2:"· savdo bo‘limi auditi",
   h1:"Reklamaga pul to‘lagan mijozlaringizni yo‘qotyapsiz",
   sub:"amoCRM va telefoniyani 3 kunda ulaymiz. Sotuvlaringizni aniq raqamlar asosida boshqarasiz.",
-  name:"Ismingiz", submit:"Audit olish",
+  name:"Ismingiz", submit:"Auditga ega bo‘lish",
   errName:"Ismingizni kiriting.", errPhone:"Raqamni tekshiring: +998 dan keyin 9 ta raqam.",
   fine:"30 daqiqalik suhbat. Arizalar qayerda yo‘qolayotganini va bu necha so‘m ekanini ko‘rsatamiz.",
   doneT:"Arizangiz qabul qilindi", doneP:"Ish vaqtida 15 daqiqa ichida qo‘ng‘iroq qilamiz. Tezroq bo‘lsin desangiz — o‘zingiz qo‘ng‘iroq qiling va quyidagi bonusni oling.",
@@ -325,6 +339,8 @@ uz:{
   mIni:"S", mName:"Sarvinoz", mRole:"Be Soft menejeri", callBtn:"Qo‘ng‘iroq qilish",
   hours:"Du–Ju, 10:30–19:30 (Toshkent vaqti)",
   stick:"Bepul audit olish",
+  tLabel:"Bepul audit siz uchun band qilingan:", tEnd:"Bepul auditga arizani hoziroq qoldiring",
+  tgBtn:"Menejerga Telegramda yozish", tgText:"Assalomu alaykum! Kompaniyamga amoCRM integratsiya qilmoqchiman, barcha tafsilotlarni muhokama qilsak.",
   pTag:"amoCRM rasmiy hamkori", pT:"amoSTART dasturining sertifikatlangan hamkori", pP:"Be Soft kompaniyasi va mutaxassisimiz amoCRM tomonidan sertifikatlangan. Tizimni amoCRM standartlari asosida joriy qilamiz.", pIdK:"Hamkor ID:",
   foot:"© Be Soft · Toshkent · amoCRM rasmiy hamkori"
 }};
@@ -336,6 +352,8 @@ function render(){
   const d=T[lang]; document.documentElement.lang=lang;
   document.querySelectorAll("[data-i]").forEach(el=>{const v=d[el.dataset.i]; if(v!=null) el.innerHTML=v;});
   document.querySelectorAll("[data-ph]").forEach(el=>el.placeholder=d[el.dataset.ph]);
+  document.getElementById("tgLink").href="https://t.me/sarvinoz_besoft?text="+encodeURIComponent(d.tgText);
+  tick();
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.set===lang));
   const e=document.getElementById("err"); if(!e.hidden) e.textContent=d[e.dataset.k];
 }
@@ -370,6 +388,16 @@ if("IntersectionObserver" in window){
   const io=new IntersectionObserver(es=>{es.forEach(en=>en.isIntersecting?seen.add(en.target):seen.delete(en.target));stick.hidden=seen.size>0;},{threshold:.15});
   io.observe(document.getElementById("form")); io.observe(document.getElementById("call"));
 }
+/* timer: 15 minutes from the moment the visitor opened the site */
+function tick(){
+  const el=document.getElementById("tVal"), lbl=document.querySelector("[data-i=tLabel]");
+  const left=Math.max(0,TEND-Date.now()), m=Math.floor(left/60000), s=Math.floor(left%60000/1000);
+  el.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  if(!left){lbl.textContent=T[lang].tEnd; el.hidden=true;}
+}
+let TEND=Date.now()+15*60000;
+try{const v=+sessionStorage.getItem("besoft-t"); if(v>Date.now()) TEND=v; else sessionStorage.setItem("besoft-t",TEND);}catch(e){}
+setInterval(tick,1000);
 render();
 </script>
 
