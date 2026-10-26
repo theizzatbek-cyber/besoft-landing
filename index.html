@@ -298,6 +298,9 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
 <div class="stick" id="stick"><a href="#form" data-i="stick"></a></div>
 
 <script>
+/* адрес обработчика заявок (Google Apps Script) */
+const LEAD_URL = "https://script.google.com/macros/s/AKfycbzcg-IZvPC1EU9NYeTO4m2XqFvlSlDxAE4wQcXGeyTgEAuM6Waj-qu1_OkrnSPa9LT3EQ/exec";
+
 const T = {
 ru:{
   topCall:"Позвонить",
@@ -388,9 +391,12 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   const k=!name?"errName":digits.length!==12?"errPhone":null;
   if(k){err.dataset.k=k;err.textContent=T[lang][k];err.hidden=false;return;}
   err.hidden=true;
-  const lead={name,phone:"+"+digits,lang,source:"besoft-landing",at:new Date().toISOString()};
-  /* Сюда подключается отправка заявки: вебхук amoCRM, Telegram-бот или форма Tilda */
-  console.log("lead",lead);
+  const q=new URLSearchParams(location.search);
+  const lead={name,phone:"+"+digits,lang,page:location.href,path:location.pathname,
+    utm_source:q.get("utm_source")||"",utm_medium:q.get("utm_medium")||"",utm_campaign:q.get("utm_campaign")||"",
+    utm_content:q.get("utm_content")||"",utm_term:q.get("utm_term")||""};
+  /* заявка уходит в Google Apps Script: сделка в amoCRM + строка в Google Таблице */
+  fetch(LEAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead),keepalive:true}).catch(()=>{});
   goal("lead_form");
   ev.target.hidden=true; document.getElementById("done").hidden=false;
 });
