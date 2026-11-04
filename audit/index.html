@@ -464,6 +464,7 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   /* заявка уходит в Google Apps Script: сделка в amoCRM + строка в Google Таблице */
   fetch(LEAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead),keepalive:true}).catch(()=>{});
   goal("lead_form");
+  try{if(window.fbq) fbq("track","Lead");}catch(e){}
   ev.target.hidden=true; document.getElementById("done").hidden=false;
 });
 
