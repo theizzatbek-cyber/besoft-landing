@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Be Soft — админка бота</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23027FFF'/%3E%3Ctext x='8' y='44' font-family='Arial' font-weight='900' font-size='32' fill='white'%3EBs.%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap">
+<style>
+:root{--bg:#F6F8FB;--card:#fff;--ink:#0A0B0D;--muted:rgba(10,11,13,.58);--line:rgba(10,11,13,.1);--blue:#027FFF;--blue-soft:#E8F3FF;--green:#12A150;--red:#D93025;--r:14px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Onest,system-ui,sans-serif}
+button,input,textarea,select{font:inherit;color:inherit}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 80px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.logo{width:40px;height:40px;border-radius:11px;background:var(--blue);color:#fff;font-weight:900;display:grid;place-items:center;font-size:17px;flex:none}
+header h1{font-size:19px;margin:0;font-weight:800}
+header .bot{color:var(--muted);font-size:14px}
+header .bot a{color:var(--blue);text-decoration:none}
+header .sp{flex:1}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:110px}
+.stat b{display:block;font-size:22px;font-weight:800}
+.stat span{font-size:12.5px;color:var(--muted)}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;overflow-x:auto}
+nav button{flex:1;border:0;background:none;padding:9px 12px;border-radius:9px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
+nav button[aria-selected=true]{background:var(--blue-soft);color:var(--blue)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 4px;font-weight:700}
+.card .hint{color:var(--muted);font-size:13px;margin:0 0 12px}
+label.f{display:block;margin-bottom:14px}
+label.f>span{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+label.f>small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+input[type=text],input[type=password],input[type=url],textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+textarea{min-height:92px;resize:vertical}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:var(--blue-soft);color:var(--blue)}
+.btn.plain{background:none;color:var(--muted);padding:8px 10px}
+.btn.danger{background:#FDECEA;color:var(--red)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.seg{display:inline-flex;background:var(--bg);border-radius:10px;padding:3px;border:1px solid var(--line)}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.q{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;background:var(--bg)}
+.q .row{justify-content:space-between;margin-bottom:8px}
+.q b{font-size:13px}
+.sticky{position:sticky;bottom:12px;z-index:5;display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 30px -12px rgba(0,0,0,.25)}
+.sticky .msg{flex:1;font-size:13.5px;color:var(--muted)}
+.msg.ok{color:var(--green)}.msg.err{color:var(--red)}
+.preview{background:#E6EBF0;border-radius:12px;padding:14px}
+.bubble{background:#fff;border-radius:12px 12px 12px 4px;padding:10px 12px;max-width:420px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
+.bubble .kb{display:block;margin-top:8px;background:rgba(2,127,255,.08);color:var(--blue);text-align:center;border-radius:8px;padding:7px;font-weight:600;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.u{cursor:pointer}
+tr.u:hover td{background:var(--bg)}
+.tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.tag.done{background:#E7F6EE;color:var(--green)}.tag.blocked{background:#FDECEA;color:var(--red)}
+.ans{white-space:pre-wrap;color:var(--muted);font-size:13px;background:var(--bg);border-radius:10px;padding:10px 12px}
+.tablewrap{overflow-x:auto}
+#login{max-width:380px;margin:12vh auto 0}
+#login .logo{margin-bottom:14px}
+.empty{color:var(--muted);text-align:center;padding:30px}
+.bar{height:8px;background:var(--bg);border-radius:9px;overflow:hidden;margin:10px 0}
+.bar i{display:block;height:100%;background:var(--blue);width:0;transition:width .3s}
+dialog{border:0;border-radius:16px;padding:20px;max-width:460px;width:calc(100% - 32px);box-shadow:0 20px 60px -20px rgba(0,0,0,.4)}
+dialog::backdrop{background:rgba(10,11,13,.4)}
+@media (max-width:640px){.grid2{grid-template-columns:1fr}.hide-sm{display:none}}
+</style>
+</head>
+<body>
+
+<div id="login" class="card" hidden>
+  <div class="logo">Bs.</div>
+  <h2>Админка бота Be Soft</h2>
+  <p class="hint">Введите пароль. Он задан в свойствах скрипта (ADMIN_PASSWORD).</p>
+  <form id="loginForm">
+    <label class="f"><span>Пароль</span><input type="password" id="pass" autocomplete="current-password" required></label>
+    <div class="row"><button class="btn" type="submit">Войти</button><span class="msg err" id="loginErr"></span></div>
+  </form>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header>
+    <div class="logo">Bs.</div>
+    <div><h1>Бот Be Soft</h1><div class="bot" id="botName">—</div></div>
+    <div class="sp"></div>
+    <button class="btn plain" id="logout">Выйти</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <nav role="tablist">
+    <button role="tab" data-tab="msgs" aria-selected="true">Сообщения</button>
+    <button role="tab" data-tab="bc" aria-selected="false">Рассылка</button>
+    <button role="tab" data-tab="users" aria-selected="false">Клиенты</button>
+    <button role="tab" data-tab="set" aria-selected="false">Настройки</button>
+  </nav>
+
+  <!-- Сообщения -->
+  <section data-panel="msgs">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Тексты бота</h2><p class="hint" style="margin:0">Подстановки: <code>{name}</code> — имя клиента, <code>{manager}</code> — имя менеджера, <code>{phone}</code> — телефон. Разметка: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</p></div>
+        <div class="seg" id="langSeg"><button data-l="ru" aria-pressed="true">Русский</button><button data-l="uz" aria-pressed="false">O‘zbekcha</button></div>
+      </div>
+    </div>
+    <div id="msgForm"></div>
+  </section>
+
+  <!-- Рассылка -->
+  <section data-panel="bc" hidden>
+    <div class="card">
+      <h2>Новая рассылка</h2>
+      <p class="hint">Сообщение уйдёт всем выбранным клиентам, кто не заблокировал бота.</p>
+      <label class="f"><span>Кому</span><select id="bcSeg"></select></label>
+      <label class="f"><span>Текст</span><textarea id="bcText" maxlength="4000" placeholder="Например: Друзья, до пятницы внедрение amoCRM со скидкой 20%…"></textarea><small>HTML-разметка: &lt;b&gt;, &lt;i&gt;, &lt;a href&gt;. До 4000 символов.</small></label>
+      <div class="grid2">
+        <label class="f"><span>Кнопка (необязательно)</span><input type="text" id="bcBtn" maxlength="60" placeholder="Подробнее"></label>
+        <label class="f"><span>Ссылка кнопки</span><input type="url" id="bcUrl" placeholder="https://besoft.uz"></label>
+      </div>
+      <p class="hint" style="margin-bottom:6px">Предпросмотр</p>
+      <div class="preview"><div class="bubble" id="bcPrev">…</div></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="bcSend">Отправить</button><span class="msg" id="bcMsg"></span></div>
+    </div>
+    <div class="card" id="bcJob" hidden>
+      <h2>Последняя рассылка</h2>
+      <div class="bar"><i id="bcBar"></i></div>
+      <div id="bcJobInfo" class="hint" style="margin:0"></div>
+    </div>
+  </section>
+
+  <!-- Клиенты -->
+  <section data-panel="users" hidden>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">Клиенты в боте</h2>
+        <div class="row"><input type="text" id="uSearch" placeholder="Поиск: имя, телефон, @username" style="width:260px"><button class="btn ghost" id="uReload">Обновить</button></div>
+      </div>
+      <div class="tablewrap"><table><thead><tr><th>Клиент</th><th class="hide-sm">Телефон</th><th>Этап</th><th class="hide-sm">Пришёл</th><th></th></tr></thead><tbody id="uBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- Настройки -->
+  <section data-panel="set" hidden>
+    <div class="card">
+      <h2>Менеджер</h2>
+      <p class="hint">Используется в кнопках «Позвонить» и «Написать менеджеру» и в подстановках {manager}, {phone}.</p>
+      <div class="grid2">
+        <label class="f"><span>Имя</span><input type="text" id="mName" maxlength="60"></label>
+        <label class="f"><span>Telegram username</span><input type="text" id="mUser" maxlength="64" placeholder="sarvinoz_besoft"></label>
+        <label class="f"><span>Телефон</span><input type="text" id="mPhone" maxlength="30"></label>
+      </div>
+      <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="notify"> Присылать ответы и сообщения клиентов в тему «Лиды» (бот Пятница)</label>
+    </div>
+    <div class="card">
+      <h2>Сбросить тексты</h2>
+      <p class="hint">Вернёт все сообщения и вопросы к исходным.</p>
+      <button class="btn danger" id="reset">Сбросить к исходным</button>
+    </div>
+  </section>
+
+  <div class="sticky" id="saveBar" hidden><span class="msg" id="saveMsg">Есть несохранённые изменения</span><button class="btn plain" id="undo">Отменить</button><button class="btn" id="save">Сохранить</button></div>
+</div>
+
+<dialog id="dlg">
+  <h2 style="margin:0 0 4px;font-size:16px" id="dlgTitle">Написать клиенту</h2>
+  <p class="hint" id="dlgHint" style="margin:0 0 12px">Сообщение придёт от бота Be Soft.</p>
+  <textarea id="dlgText" maxlength="4000"></textarea>
+  <div class="row" style="margin-top:12px;justify-content:flex-end"><span class="msg" id="dlgMsg" style="flex:1"></span><button class="btn plain" id="dlgCancel">Отмена</button><button class="btn" id="dlgSend">Отправить</button></div>
+</dialog>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbzcg-IZvPC1EU9NYeTO4m2XqFvlSlDxAE4wQcXGeyTgEAuM6Waj-qu1_OkrnSPa9LT3EQ/exec";
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }, del(k) { try { sessionStorage.removeItem(k); } catch (e) {} } };
+
+let password = store.get('bs_pass') || '';
+let settings = null, saved = null, lang = 'ru', users = [], stats = null, pollTimer = null;
+
+async function api(action, extra) {
+  const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ bsAdmin: 1, password, action }, extra || {})) });
+  const data = await res.json();
+  if (!data.ok) {
+    if (data.auth === false) logout('Неверный пароль');
+    throw new Error(data.error || 'Ошибка');
+  }
+  return data.data;
+}
+
+/* ---------- Вход ---------- */
+function logout(msg) {
+  password = ''; store.del('bs_pass');
+  $('#app').hidden = true; $('#login').hidden = false; $('#loginErr').textContent = msg || '';
+}
+$('#logout').onclick = () => logout();
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault();
+  password = $('#pass').value; $('#loginErr').textContent = 'Проверяю…';
+  try { await boot(); store.set('bs_pass', password); $('#pass').value = ''; }
+  catch (err) { $('#loginErr').textContent = err.message; }
+};
+
+async function boot() {
+  const me = await api('login');
+  $('#botName').innerHTML = me.bot ? '<a href="https://t.me/' + esc(me.bot) + '" target="_blank" rel="noopener">@' + esc(me.bot) + '</a>' : 'токен бота не задан';
+  const s = await api('getSettings');
+  settings = s.settings; saved = JSON.stringify(settings);
+  $('#login').hidden = true; $('#app').hidden = false;
+  renderMsgs(); renderSet(); dirty();
+  loadStats(); loadJob();
+}
+
+/* ---------- Вкладки ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+  if (b.dataset.tab === 'users' && !users.length) loadUsers();
+  if (b.dataset.tab === 'bc') { loadStats(); loadJob(); }
+});
+
+/* ---------- Статистика ---------- */
+async function loadStats() {
+  try {
+    stats = await api('stats');
+    $('#stats').innerHTML = [['Всего в боте', stats.total], ['Ответили на вопросы', stats.done], ['Привязаны к сделке', stats.withLead], ['Заблокировали', stats.blocked]]
+      .map(x => '<div class="stat"><b>' + x[1] + '</b><span>' + x[0] + '</span></div>').join('');
+    const seg = $('#bcSeg'), cur = seg.value || 'all', g = stats.segments;
+    seg.innerHTML = [['all', 'Все клиенты'], ['ru', 'Русскоязычные'], ['uz', 'Узбекоязычные'], ['done', 'Ответили на вопросы'], ['notdone', 'Не ответили на вопросы']]
+      .map(x => '<option value="' + x[0] + '">' + x[1] + ' — ' + g[x[0]] + '</option>').join('');
+    seg.value = cur;
+  } catch (err) { console.error(err); }
+}
+
+/* ---------- Сообщения ---------- */
+const FIELDS = [
+  ['welcome', 'Приветствие (клиент пришёл с сайта)', 'Когда бот нашёл заявку. {name} — имя из заявки.', 'ta'],
+  ['welcomeNoName', 'Приветствие (заявка не найдена)', 'Если клиент открыл бота сам, без перехода с сайта.', 'ta'],
+  ['startBtn', 'Кнопка «начать вопросы»', '', 'in'],
+  ['sharePrompt', 'Просьба отправить номер', 'Показывается, если бот не знает телефон клиента.', 'ta'],
+  ['shareBtn', 'Кнопка «отправить номер»', '', 'in'],
+  ['QUESTIONS'],
+  ['timeQuestion', 'Вопрос о времени созвона', '', 'ta'],
+  ['TIME'],
+  ['final', 'Финальное сообщение', 'После ответа на все вопросы.', 'ta'],
+  ['callBtn', 'Кнопка «Позвонить»', '', 'in'],
+  ['callText', 'Ответ на «Позвонить»', '{phone} — телефон менеджера.', 'ta'],
+  ['writeBtn', 'Кнопка «Написать менеджеру»', '', 'in'],
+  ['textReceived', 'Ответ на свободное сообщение', 'Сообщение клиента уходит менеджеру в «Лиды».', 'ta'],
+  ['langBtn', 'Кнопка смены языка', '', 'in']
+];
+
+function renderMsgs() {
+  const L = settings[lang];
+  let html = '';
+  let block = '';
+  const flush = (title, hint) => { if (block) html += '<div class="card">' + (title ? '<h2>' + title + '</h2><p class="hint">' + hint + '</p>' : '') + block + '</div>'; block = ''; };
+  FIELDS.forEach(f => {
+    if (f[0] === 'QUESTIONS') {
+      flush();
+      const qs = L.questions.map((q, i) => '<div class="q"><div class="row"><b>Вопрос ' + (i + 1) + '</b><span>' +
+        (i > 0 ? '<button class="btn plain" data-qup="' + i + '" title="Выше">↑</button>' : '') +
+        '<button class="btn plain" data-qdel="' + i + '">Удалить</button></span></div>' +
+        '<label class="f"><span>Текст вопроса</span><textarea data-q="' + i + '" style="min-height:60px">' + esc(q.text) + '</textarea></label>' +
+        '<label class="f" style="margin:0"><span>Варианты ответа — каждый с новой строки (2–8)</span><textarea data-qo="' + i + '" style="min-height:80px">' + esc(q.options.join('\n')) + '</textarea></label></div>').join('');
+      html += '<div class="card"><h2>Вопросы</h2><p class="hint">Клиент отвечает кнопками. Вопрос добавляется и удаляется сразу на обоих языках — не забудьте перевести.</p>' + qs +
+        (L.questions.length < 8 ? '<button class="btn ghost" id="qAdd">+ Добавить вопрос</button>' : '') + '</div>';
+      return;
+    }
+    if (f[0] === 'TIME') {
+      block += '<label class="f"><span>Варианты времени — каждый с новой строки</span><textarea data-time>' + esc(L.timeOptions.join('\n')) + '</textarea></label>';
+      flush('Время созвона', 'Последний вопрос перед финальным сообщением.');
+      return;
+    }
+    const [k, label, hint, kind] = f;
+    const input = kind === 'in' ? '<input type="text" maxlength="60" data-k="' + k + '" value="' + esc(L[k]) + '">' : '<textarea data-k="' + k + '">' + esc(L[k]) + '</textarea>';
+    block += '<label class="f"><span>' + label + '</span>' + input + (hint ? '<small>' + hint + '</small>' : '') + '</label>';
+    if (k === 'shareBtn') flush('Начало диалога', 'Первое, что видит клиент после перехода в бота.');
+    if (k === 'langBtn') flush('Кнопки и ответы', '');
+  });
+  $('#msgForm').innerHTML = html;
+  $('#msgForm').querySelectorAll('[data-k]').forEach(el => el.oninput = () => { settings[lang][el.dataset.k] = el.value; dirty(); });
+  $('#msgForm').querySelectorAll('[data-q]').forEach(el => el.oninput = () => { settings[lang].questions[el.dataset.q].text = el.value; dirty(); });
+  $('#msgForm').querySelectorAll('[data-qo]').forEach(el => el.oninput = () => { settings[lang].questions[el.dataset.qo].options = lines(el.value); dirty(); });
+  const t = $('#msgForm [data-time]'); t.oninput = () => { settings[lang].timeOptions = lines(t.value); dirty(); };
+  $('#msgForm').querySelectorAll('[data-qdel]').forEach(b => b.onclick = () => {
+    if (!confirm('Удалить вопрос ' + (+b.dataset.qdel + 1) + ' на обоих языках?')) return;
+    ['ru', 'uz'].forEach(l => settings[l].questions.splice(+b.dataset.qdel, 1)); renderMsgs(); dirty();
+  });
+  $('#msgForm').querySelectorAll('[data-qup]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.qup;
+    ['ru', 'uz'].forEach(l => { const q = settings[l].questions; [q[i - 1], q[i]] = [q[i], q[i - 1]]; }); renderMsgs(); dirty();
+  });
+  const add = $('#qAdd');
+  if (add) add.onclick = () => {
+    settings.ru.questions.push({ text: 'Новый вопрос', options: ['Вариант 1', 'Вариант 2'] });
+    settings.uz.questions.push({ text: 'Yangi savol', options: ['1-variant', '2-variant'] });
+    renderMsgs(); dirty();
+  };
+}
+const lines = v => v.split('\n').map(x => x.trim()).filter(Boolean);
+
+document.querySelectorAll('#langSeg button').forEach(b => b.onclick = () => {
+  lang = b.dataset.l;
+  document.querySelectorAll('#langSeg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderMsgs();
+});
+
+/* ---------- Настройки ---------- */
+function renderSet() {
+  $('#mName').value = settings.manager.name; $('#mUser').value = settings.manager.username;
+  $('#mPhone').value = settings.manager.phone; $('#notify').checked = settings.notify !== false;
+}
+[['#mName', 'name'], ['#mUser', 'username'], ['#mPhone', 'phone']].forEach(([s, k]) => $(s).oninput = () => { settings.manager[k] = $(s).value.trim(); dirty(); });
+$('#notify').onchange = () => { settings.notify = $('#notify').checked; dirty(); };
+$('#reset').onclick = async () => {
+  if (!confirm('Вернуть все тексты и вопросы к исходным?')) return;
+  try { settings = (await api('resetSettings')).settings; saved = JSON.stringify(settings); renderMsgs(); renderSet(); dirty(); alert('Готово'); }
+  catch (err) { alert(err.message); }
+};
+
+/* ---------- Сохранение ---------- */
+function dirty() {
+  const changed = JSON.stringify(settings) !== saved;
+  $('#saveBar').hidden = !changed;
+  $('#saveMsg').className = 'msg'; $('#saveMsg').textContent = 'Есть несохранённые изменения';
+}
+$('#undo').onclick = () => { settings = JSON.parse(saved); renderMsgs(); renderSet(); dirty(); };
+$('#save').onclick = async () => {
+  $('#save').disabled = true; $('#saveMsg').textContent = 'Сохраняю…';
+  try {
+    settings = (await api('saveSettings', { settings })).settings; saved = JSON.stringify(settings);
+    renderMsgs(); renderSet(); $('#saveBar').hidden = false;
+    $('#saveMsg').className = 'msg ok'; $('#saveMsg').textContent = 'Сохранено. Бот уже отвечает новыми текстами.';
+    setTimeout(dirty, 2500);
+  } catch (err) { $('#saveMsg').className = 'msg err'; $('#saveMsg').textContent = err.message; }
+  $('#save').disabled = false;
+};
+window.addEventListener('beforeunload', e => { if (settings && JSON.stringify(settings) !== saved) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- Рассылка ---------- */
+function bcPreview() {
+  const t = $('#bcText').value.trim() || 'Текст рассылки';
+  const safe = esc(t).replace(/&lt;(\/?)(b|i|u|s)&gt;/g, '<$1$2>');
+  $('#bcPrev').innerHTML = safe + ($('#bcBtn').value.trim() ? '<span class="kb">' + esc($('#bcBtn').value.trim()) + '</span>' : '');
+}
+['#bcText', '#bcBtn'].forEach(s => $(s).oninput = bcPreview); bcPreview();
+$('#bcSend').onclick = async () => {
+  const text = $('#bcText').value.trim(), btnText = $('#bcBtn').value.trim(), btnUrl = $('#bcUrl').value.trim();
+  if (!text) return $('#bcMsg').textContent = 'Введите текст';
+  if (btnText && !/^https:\/\//.test(btnUrl)) return $('#bcMsg').textContent = 'Ссылка кнопки должна начинаться с https://';
+  const seg = $('#bcSeg'), n = stats ? stats.segments[seg.value] : '?';
+  if (!confirm('Отправить рассылку: ' + seg.options[seg.selectedIndex].text.split(' — ')[0] + ' (' + n + ' чел.)?')) return;
+  $('#bcSend').disabled = true; $('#bcMsg').className = 'msg'; $('#bcMsg').textContent = 'Отправляю…';
+  try {
+    const r = await api('broadcast', { text, btnText, btnUrl, segment: seg.value });
+    showJob(r.job); $('#bcMsg').className = 'msg ok'; $('#bcMsg').textContent = r.job.status === 'done' ? 'Готово' : 'Рассылка идёт, можно закрыть страницу';
+    $('#bcText').value = ''; bcPreview();
+  } catch (err) { $('#bcMsg').className = 'msg err'; $('#bcMsg').textContent = err.message; }
+  $('#bcSend').disabled = false;
+};
+async function loadJob() { try { showJob((await api('broadcastStatus')).job); } catch (err) {} }
+function showJob(job) {
+  clearTimeout(pollTimer);
+  if (!job) return $('#bcJob').hidden = true;
+  $('#bcJob').hidden = false;
+  const done = job.sent + job.failed;
+  $('#bcBar').style.width = (job.total ? Math.round(done / job.total * 100) : 100) + '%';
+  $('#bcJobInfo').innerHTML = (job.status === 'done' ? '✅ Завершена' : '⏳ Идёт') + ' · отправлено ' + job.sent + ' из ' + job.total +
+    (job.failed ? ' · не доставлено ' + job.failed : '') + ' · ' + new Date(job.started).toLocaleString('ru-RU') +
+    '<div class="bubble" style="margin-top:10px;max-width:none">' + esc(job.text) + '</div>';
+  if (job.status === 'running') pollTimer = setTimeout(loadJob, 15000);
+}
+
+/* ---------- Клиенты ---------- */
+const STAGE = s => s === 'done' ? '<span class="tag done">Ответил</span>' : /^q\d+$|^time$/.test(s) ? '<span class="tag">Отвечает</span>' : '<span class="tag">Пришёл</span>';
+async function loadUsers() {
+  $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">Загружаю…</td></tr>';
+  try { users = (await api('users')).users; renderUsers(); }
+  catch (err) { $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>'; }
+}
+function renderUsers() {
+  const q = $('#uSearch').value.trim().toLowerCase();
+  const list = users.filter(u => !q || [u.name, u.tg_name, u.phone, u.username].join(' ').toLowerCase().includes(q.replace(/^@/, '')));
+  if (!list.length) return $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">' + (users.length ? 'Никого не нашли' : 'Пока никто не пришёл в бота') + '</td></tr>';
+  $('#uBody').innerHTML = list.map(u => '<tr class="u" data-id="' + esc(u.chat_id) + '"><td><b>' + esc(u.name || u.tg_name || 'Без имени') + '</b>' +
+    (u.username ? '<br><a href="https://t.me/' + esc(u.username) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">@' + esc(u.username) + '</a>' : '') +
+    ' <span class="tag">' + u.lang + '</span>' + (u.blocked ? ' <span class="tag blocked">заблокировал</span>' : '') + '</td>' +
+    '<td class="hide-sm">' + esc(u.phone || '—') + '</td><td>' + STAGE(u.stage) + '</td>' +
+    '<td class="hide-sm">' + (u.started ? new Date(u.started).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</td>' +
+    '<td><button class="btn ghost" data-write="' + esc(u.chat_id) + '"' + (u.blocked ? ' disabled' : '') + '>Написать</button></td></tr>' +
+    '<tr hidden data-ans="' + esc(u.chat_id) + '"><td colspan="5"><div class="ans">' + (u.answers.length ? esc(u.answers.join('\n\n')) : 'Ещё не ответил на вопросы') + '</div></td></tr>').join('');
+  $('#uBody').querySelectorAll('tr.u').forEach(tr => tr.onclick = () => { const a = $('#uBody').querySelector('[data-ans="' + CSS.escape(tr.dataset.id) + '"]'); a.hidden = !a.hidden; });
+  $('#uBody').querySelectorAll('[data-write]').forEach(b => b.onclick = e => { e.stopPropagation(); openDlg(users.find(u => u.chat_id === b.dataset.write)); });
+}
+$('#uSearch').oninput = renderUsers;
+$('#uReload').onclick = () => { loadUsers(); loadStats(); };
+
+let dlgUser = null;
+function openDlg(u) {
+  dlgUser = u; $('#dlgTitle').textContent = 'Написать: ' + (u.name || u.tg_name || 'клиенту');
+  $('#dlgText').value = ''; $('#dlgMsg').textContent = ''; $('#dlg').showModal(); $('#dlgText').focus();
+}
+$('#dlgCancel').onclick = () => $('#dlg').close();
+$('#dlgSend').onclick = async () => {
+  const text = $('#dlgText').value.trim(); if (!text) return;
+  $('#dlgSend').disabled = true; $('#dlgMsg').className = 'msg'; $('#dlgMsg').textContent = 'Отправляю…';
+  try { await api('sendTo', { chat_id: dlgUser.chat_id, text }); $('#dlgMsg').className = 'msg ok'; $('#dlgMsg').textContent = 'Отправлено'; setTimeout(() => $('#dlg').close(), 900); }
+  catch (err) { $('#dlgMsg').className = 'msg err'; $('#dlgMsg').textContent = err.message; }
+  $('#dlgSend').disabled = false;
+};
+
+/* ---------- Старт ---------- */
+if (password) boot().catch(err => logout(err.message)); else logout();
+</script>
+</body>
+</html>

@@ -264,7 +264,7 @@ footer{padding-block:8px 100px;font-size:13px;color:var(--muted);text-align:cent
       <button class="go" type="submit"><span data-i="submit">Получить аудит</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <p class="err" id="err" hidden></p>
     </form>
-    <div class="done" id="done" hidden><b data-i="doneT">Заявка у нас</b><p data-i="doneP">Позвоним в течение 15 минут в рабочее время. Хотите быстрее — наберите сами и заберите бонус ниже.</p></div>
+    <div class="done" id="done" hidden><b data-i="doneT">Заявка у нас</b><p data-i="doneP">Позвоним в течение 15 минут в рабочее время. Хотите быстрее — наберите сами и заберите бонус ниже.</p><a class="tg" id="botLink" href="https://t.me/besoft_uz_bot" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.5c-.2 1-.9 1.3-1.7.8l-4.8-3.6-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9 8.9-8c.4-.3-.1-.5-.6-.2L6.5 13.3 1.8 11.8c-1-.3-1-1 .2-1.5L20.6 3.2c.9-.3 1.6.2 1.3 1.1z"/></svg><span data-i="botBtn">Продолжить в Telegram</span></a></div>
     <p class="fine" data-i="fine">30 минут созвона. Покажем, где утекают заявки и сколько это стоит в сумах.</p>
 
     <div class="proof">
@@ -381,7 +381,7 @@ ru:{
   hours:"Пн–Пт, 10:30–19:30 по Ташкенту",
   stick:"Получить бесплатный аудит",
   tLabel:"Аудит закреплён за вами ещё", tEnd:"Успейте оставить заявку на бесплатный аудит",
-  tgBtn:"Написать менеджеру в Telegram", tgText:"Здравствуйте! Хочу интегрировать amoCRM в свою компанию и обсудить все детали.",
+  botBtn:"Продолжить в Telegram", tgBtn:"Написать менеджеру в Telegram", tgText:"Здравствуйте! Хочу интегрировать amoCRM в свою компанию и обсудить все детали.",
   pTag:"Официальный партнёр amoCRM", pT:"Сертифицированный партнёр программы amoSTART", pP:"Компания Be Soft и наш специалист сертифицированы amoCRM. Внедряем систему по стандартам самой amoCRM.", pIdK:"ID партнёра:",
   faqT:"Частые вопросы о внедрении amoCRM",
   q1:"Сколько стоит внедрение amoCRM в Ташкенте?", a1:"Цена зависит от числа менеджеров, воронок и интеграций. Точную стоимость в сумах назовём после бесплатного аудита отдела продаж — он занимает 30 минут.",
@@ -417,7 +417,7 @@ uz:{
   hours:"Du–Ju, 10:30–19:30 (Toshkent vaqti)",
   stick:"Bepul audit olish",
   tLabel:"Bepul audit siz uchun band qilingan:", tEnd:"Bepul auditga arizani hoziroq qoldiring",
-  tgBtn:"Menejerga Telegramda yozish", tgText:"Assalomu alaykum! Kompaniyamga amoCRM integratsiya qilmoqchiman, barcha tafsilotlarni muhokama qilsak.",
+  botBtn:"Telegramda davom etish", tgBtn:"Menejerga Telegramda yozish", tgText:"Assalomu alaykum! Kompaniyamga amoCRM integratsiya qilmoqchiman, barcha tafsilotlarni muhokama qilsak.",
   pTag:"amoCRM rasmiy hamkori", pT:"amoSTART dasturining sertifikatlangan hamkori", pP:"Be Soft kompaniyasi va mutaxassisimiz amoCRM tomonidan sertifikatlangan. Tizimni amoCRM standartlari asosida joriy qilamiz.", pIdK:"Hamkor ID:",
   faqT:"amoCRM joriy qilish bo‘yicha savollar",
   q1:"Toshkentda amoCRM o‘rnatish qancha turadi?", a1:"Narx menejerlar soni, voronkalar va integratsiyalarga bog‘liq. Aniq narxni so‘mda bepul savdo bo‘limi auditidan keyin aytamiz — u 30 daqiqa davom etadi.",
@@ -481,7 +481,9 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   const k=!name?"errName":digits.length!==12?"errPhone":!city?"errCity":null;
   if(k){err.dataset.k=k;err.textContent=T[lang][k];err.hidden=false;return;}
   err.hidden=true;
-  const lead=Object.assign({name,phone:"+"+digits,city,lang,page:location.href,path:location.pathname},SRC);
+  const tgTok=newTok();
+  document.getElementById("botLink").href="https://t.me/"+BS_BOT+"?start="+tgTok;
+  const lead=Object.assign({tg_token:tgTok,name,phone:"+"+digits,city,lang,page:location.href,path:location.pathname},SRC);
   /* заявка уходит в Google Apps Script: сделка в amoCRM + строка в Google Таблице */
   fetch(LEAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead),keepalive:true}).catch(()=>{});
   goal("lead_form");
@@ -517,6 +519,10 @@ if("IntersectionObserver" in window){
 }
 /* Yandex.Metrika goals */
 function goal(n){try{if(window.ym) ym(113791518,"reachGoal",n);}catch(e){}}
+/* бот Be Soft: одноразовый токен связывает заявку с чатом в Telegram */
+const BS_BOT="besoft_uz_bot";
+function newTok(){try{const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}catch(e){return (Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/g,"").slice(0,32);}}
+document.getElementById("botLink").addEventListener("click",()=>goal("bot_click"));
 document.querySelectorAll(".dial").forEach(a=>a.addEventListener("click",()=>goal("call_click")));
 document.getElementById("tgLink").addEventListener("click",()=>goal("tg_click"));
 
