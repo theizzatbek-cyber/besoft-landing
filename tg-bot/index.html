@@ -4,175 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Be Soft — админка бота</title>
+<title>Be Soft — конструктор бота</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23027FFF'/%3E%3Ctext x='8' y='44' font-family='Arial' font-weight='900' font-size='32' fill='white'%3EBs.%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap">
 <style>
-:root{--bg:#F6F8FB;--card:#fff;--ink:#0A0B0D;--muted:rgba(10,11,13,.58);--line:rgba(10,11,13,.1);--blue:#027FFF;--blue-soft:#E8F3FF;--green:#12A150;--red:#D93025;--r:14px}
+:root{--bg:#F4F6FA;--card:#fff;--ink:#0A0B0D;--muted:rgba(10,11,13,.56);--line:rgba(10,11,13,.1);--blue:#027FFF;--blue-soft:#E8F3FF;
+  --green:#12A150;--green-soft:#E7F6EE;--orange:#E8740C;--orange-soft:#FDF0E3;--red:#D93025;--red-soft:#FDECEA;--violet:#7A4DFF;--r:14px;
+  --tg-bg:#DCE6EE;--tg-bubble:#fff;--tg-btn:rgba(255,255,255,.72)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Onest,system-ui,sans-serif}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.45 Onest,system-ui,sans-serif}
 button,input,textarea,select{font:inherit;color:inherit}
-.wrap{max-width:980px;margin:0 auto;padding:20px 16px 80px}
-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-.logo{width:40px;height:40px;border-radius:11px;background:var(--blue);color:#fff;font-weight:900;display:grid;place-items:center;font-size:17px;flex:none}
-header h1{font-size:19px;margin:0;font-weight:800}
-header .bot{color:var(--muted);font-size:14px}
-header .bot a{color:var(--blue);text-decoration:none}
-header .sp{flex:1}
-.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-width:110px}
-.stat b{display:block;font-size:22px;font-weight:800}
-.stat span{font-size:12.5px;color:var(--muted)}
-nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;overflow-x:auto}
-nav button{flex:1;border:0;background:none;padding:9px 12px;border-radius:9px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
-nav button[aria-selected=true]{background:var(--blue-soft);color:var(--blue)}
+a{color:var(--blue)}
+.app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--blue);color:#fff;font-weight:900;display:grid;place-items:center;font-size:15px;flex:none}
+header h1{font-size:16px;margin:0;font-weight:800;line-height:1.1}
+header .bot{color:var(--muted);font-size:12.5px}
+header .bot a{text-decoration:none}
+nav{display:flex;gap:2px;background:var(--bg);border-radius:10px;padding:3px;margin-left:12px}
+nav button{border:0;background:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
+nav button[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.sp{flex:1}
+.stats{display:flex;gap:14px;font-size:12.5px;color:var(--muted)}
+.stats b{color:var(--ink);font-weight:700}
+main{flex:1;min-height:0;position:relative}
+section[data-panel]{position:absolute;inset:0;overflow:auto}
+.page{max-width:900px;margin:0 auto;padding:20px 16px 90px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
-.card h2{font-size:16px;margin:0 0 4px;font-weight:700}
-.card .hint{color:var(--muted);font-size:13px;margin:0 0 12px}
-label.f{display:block;margin-bottom:14px}
-label.f>span{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.card h2{font-size:15.5px;margin:0 0 4px;font-weight:700}
+.hint{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px}
 label.f>small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
-input[type=text],input[type=password],input[type=url],textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;outline:none}
+input[type=text],input[type=password],input[type=url],textarea,select{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 11px;background:#fff;outline:none}
 input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
-textarea{min-height:92px;resize:vertical}
-.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
+textarea{min-height:80px;resize:vertical}
+.btn{border:0;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;white-space:nowrap}
 .btn:disabled{opacity:.5;cursor:default}
 .btn.ghost{background:var(--blue-soft);color:var(--blue)}
-.btn.plain{background:none;color:var(--muted);padding:8px 10px}
-.btn.danger{background:#FDECEA;color:var(--red)}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn.plain{background:none;color:var(--muted);padding:7px 9px}
+.btn.plain:hover{color:var(--ink);background:var(--bg)}
+.btn.danger{background:var(--red-soft);color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-.seg{display:inline-flex;background:var(--bg);border-radius:10px;padding:3px;border:1px solid var(--line)}
-.seg button{border:0;background:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg{display:inline-flex;background:var(--bg);border-radius:9px;padding:3px;border:1px solid var(--line)}
+.seg button{border:0;background:none;padding:4px 11px;border-radius:7px;cursor:pointer;font-weight:700;color:var(--muted);font-size:12.5px}
 .seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.q{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;background:var(--bg)}
-.q .row{justify-content:space-between;margin-bottom:8px}
-.q b{font-size:13px}
-.sticky{position:sticky;bottom:12px;z-index:5;display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 30px -12px rgba(0,0,0,.25)}
-.sticky .msg{flex:1;font-size:13.5px;color:var(--muted)}
-.msg.ok{color:var(--green)}.msg.err{color:var(--red)}
-.preview{background:#E6EBF0;border-radius:12px;padding:14px}
-.bubble{background:#fff;border-radius:12px 12px 12px 4px;padding:10px 12px;max-width:420px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
-.bubble .kb{display:block;margin-top:8px;background:rgba(2,127,255,.08);color:var(--blue);text-align:center;border-radius:8px;padding:7px;font-weight:600;font-size:13px}
-table{width:100%;border-collapse:collapse;font-size:14px}
+.msg{font-size:13px;color:var(--muted)}.msg.ok{color:var(--green)}.msg.err{color:var(--red)}
+.check{display:flex;gap:9px;align-items:flex-start;cursor:pointer;font-size:13.5px;margin:8px 0}
+.check input{margin-top:3px;accent-color:var(--blue)}
+.check small{display:block;color:var(--muted);font-size:12px}
+
+/* ---------- Холст ---------- */
+#canvas{position:absolute;inset:0;overflow:hidden;background-color:#EEF1F6;
+  background-image:radial-gradient(rgba(10,11,13,.13) 1px,transparent 1px);background-size:22px 22px;cursor:grab;touch-action:none}
+#canvas.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+#edges path{fill:none;stroke:#7FA8D9;stroke-width:2.2}
+#edges path.then{stroke:#B49CFF;stroke-dasharray:6 5}
+#edges path.hot{stroke:var(--blue);stroke-width:3}
+#edges path.temp{stroke:var(--blue);stroke-dasharray:5 4}
+.toolbar{position:absolute;left:14px;top:14px;z-index:5;display:flex;gap:6px;align-items:center;background:#fff;border:1px solid var(--line);
+  border-radius:12px;padding:6px;box-shadow:0 6px 24px -12px rgba(0,0,0,.25);flex-wrap:wrap}
+.toolbar .z{min-width:44px;text-align:center;font-size:12.5px;color:var(--muted);font-weight:600}
+.legend{position:absolute;left:14px;bottom:14px;z-index:4;background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;max-width:calc(100% - 28px)}
+.legend i{display:inline-block;width:18px;height:0;border-top:2.2px solid #7FA8D9;vertical-align:middle;margin-right:5px}
+.legend i.t{border-top:2.2px dashed #B49CFF}
+
+.node{position:absolute;width:272px;background:#fff;border-radius:14px;border:1.5px solid transparent;
+  box-shadow:0 1px 2px rgba(0,0,0,.06),0 10px 30px -18px rgba(0,0,0,.35);cursor:default;user-select:none}
+.node.sel{border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-soft),0 10px 30px -18px rgba(0,0,0,.35)}
+.node.drop{border-color:var(--green);box-shadow:0 0 0 4px var(--green-soft)}
+.nh{display:flex;align-items:center;gap:7px;padding:9px 11px 8px;border-bottom:1px solid var(--line);cursor:move;border-radius:14px 14px 0 0;background:#FAFBFD}
+.nh .t{font-weight:700;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:99px;white-space:nowrap;letter-spacing:.01em}
+.b-start{background:var(--green-soft);color:var(--green)}
+.b-rep{background:var(--orange-soft);color:var(--orange)}
+.b-warn{background:var(--red-soft);color:var(--red)}
+.port-in{position:absolute;left:-7px;top:15px;width:12px;height:12px;border-radius:50%;background:#fff;border:2.5px solid #7FA8D9}
+.nb{padding:9px 11px 4px}
+.nb img{display:block;width:100%;max-height:150px;object-fit:cover;border-radius:9px;margin-bottom:8px;background:var(--bg)}
+.nb .txt{font-size:13px;line-height:1.42;white-space:pre-wrap;word-wrap:break-word;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
+.nb .txt.empty{color:var(--muted);font-style:italic}
+.ph{background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:0 4px;font-weight:600;font-size:.95em}
+.nbtns{padding:4px 11px 11px;display:flex;flex-direction:column;gap:5px}
+.nbtn{position:relative;background:var(--blue-soft);color:#0B5CBF;border-radius:8px;padding:6px 26px 6px 26px;font-size:12.5px;font-weight:600;text-align:center}
+.nbtn .l{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nbtn.url,.nbtn.call{background:#F1F2F5;color:var(--ink)}
+.nbtn .k{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px;opacity:.7}
+.port-out{position:absolute;right:-8px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:#fff;border:2.5px solid var(--blue);cursor:crosshair;z-index:2}
+.port-out:hover{background:var(--blue)}
+.port-out.free{border-color:var(--orange)}
+.nthen{position:relative;margin:0 11px 10px;font-size:12px;color:var(--violet);font-weight:600;padding:5px 24px 5px 10px;border:1.5px dashed #CFC2FF;border-radius:8px}
+.nthen .port-out{border-color:var(--violet)}
+.nadd{margin:0 11px 11px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;font-size:12.5px;color:var(--muted);padding:5px;cursor:pointer;font-weight:600}
+.nadd:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ---------- Панель редактирования ---------- */
+#side{position:absolute;top:0;right:0;bottom:0;width:410px;max-width:100%;background:#fff;border-left:1px solid var(--line);z-index:8;display:flex;flex-direction:column;
+  box-shadow:-12px 0 40px -28px rgba(0,0,0,.4);transform:translateX(105%);transition:transform .18s ease}
+#side.open{transform:none}
+.sh{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.sh input{font-weight:700;font-size:15px;border-color:transparent;padding:6px 8px}
+.sh input:hover{border-color:var(--line)}
+.sbody{flex:1;overflow:auto;padding:14px}
+.sfoot{border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap}
+.sect{margin-bottom:18px}
+.sect>h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px;font-weight:700;display:flex;align-items:center;gap:8px}
+.sect>h3 .sp{flex:1}
+.preview{background:var(--tg-bg);border-radius:14px;padding:14px 12px;position:relative}
+.preview::before{content:'Как увидит клиент';position:absolute;top:6px;right:10px;font-size:10.5px;color:rgba(0,0,0,.4);font-weight:600}
+.tgm{max-width:290px}
+.tgb{background:var(--tg-bubble);border-radius:14px 14px 14px 5px;overflow:hidden;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.tgb img{display:block;width:100%;max-height:220px;object-fit:cover}
+.tgb .tx{padding:7px 10px 8px;font-size:13.5px;white-space:pre-wrap;word-wrap:break-word}
+.tgb .tx:empty{display:none}
+.tgk{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.tgk span{background:var(--tg-btn);backdrop-filter:blur(4px);border-radius:9px;text-align:center;padding:7px;font-size:13px;font-weight:600;color:#1B5C8F}
+.tools{display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap}
+.tools button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 8px;cursor:pointer;font-size:12.5px;min-width:30px}
+.tools button:hover{border-color:var(--blue);color:var(--blue)}
+.cnt{font-size:11.5px;color:var(--muted);text-align:right;margin-top:3px}
+.cnt.over{color:var(--red);font-weight:700}
+.imgbox{border:1.5px dashed var(--line);border-radius:11px;padding:12px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;position:relative}
+.imgbox:hover,.imgbox.over{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+.imgbox img{display:block;max-width:100%;max-height:170px;margin:0 auto 8px;border-radius:8px}
+.bcard{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:8px;background:#FBFCFE}
+.bcard .row{flex-wrap:nowrap}
+.bcard select,.bcard input{padding:6px 9px}
+.bcard .tp{width:150px;flex:none}
+.bcard .sub{margin-top:7px}
+.ic{border:0;background:none;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px;font-size:14px;line-height:1}
+.ic:hover{background:var(--bg);color:var(--ink)}
+.empty-side{color:var(--muted);text-align:center;padding:40px 10px}
+
+/* ---------- Прочее ---------- */
+.savebar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:20;display:flex;gap:10px;align-items:center;background:var(--ink);color:#fff;
+  border-radius:12px;padding:8px 8px 8px 14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);max-width:calc(100% - 24px)}
+.savebar .msg{color:rgba(255,255,255,.75)}.savebar .msg.err{color:#FF8A80}.savebar .msg.ok{color:#7CE3A6}
+.savebar .btn.plain{color:rgba(255,255,255,.7)}.savebar .btn.plain:hover{background:rgba(255,255,255,.1);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
-td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-tr.u{cursor:pointer}
-tr.u:hover td{background:var(--bg)}
-.tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted)}
-.tag.done{background:#E7F6EE;color:var(--green)}.tag.blocked{background:#FDECEA;color:var(--red)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.u{cursor:pointer}tr.u:hover td{background:var(--bg)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.tag.done{background:var(--green-soft);color:var(--green)}.tag.blocked{background:var(--red-soft);color:var(--red)}
 .ans{white-space:pre-wrap;color:var(--muted);font-size:13px;background:var(--bg);border-radius:10px;padding:10px 12px}
 .tablewrap{overflow-x:auto}
-#login{max-width:380px;margin:12vh auto 0}
-#login .logo{margin-bottom:14px}
-.empty{color:var(--muted);text-align:center;padding:30px}
 .bar{height:8px;background:var(--bg);border-radius:9px;overflow:hidden;margin:10px 0}
 .bar i{display:block;height:100%;background:var(--blue);width:0;transition:width .3s}
+#login{max-width:380px;margin:12vh auto 0}
 dialog{border:0;border-radius:16px;padding:20px;max-width:460px;width:calc(100% - 32px);box-shadow:0 20px 60px -20px rgba(0,0,0,.4)}
 dialog::backdrop{background:rgba(10,11,13,.4)}
-@media (max-width:640px){.grid2{grid-template-columns:1fr}.hide-sm{display:none}}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:10px;font-size:13.5px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:760px){
+  .stats{display:none} nav{margin-left:0;order:3;width:100%;overflow-x:auto} nav button{flex:1;padding:7px 8px}
+  #side{width:100%;top:auto;height:72%;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;transform:translateY(105%)}
+  .grid2{grid-template-columns:1fr} .legend{display:none} .hide-sm{display:none}
+}
 </style>
 </head>
 <body>
 
 <div id="login" class="card" hidden>
-  <div class="logo">Bs.</div>
-  <h2>Админка бота Be Soft</h2>
-  <p class="hint">Введите пароль. Он задан в свойствах скрипта (ADMIN_PASSWORD).</p>
+  <div class="logo" style="margin-bottom:14px">Bs.</div>
+  <h2>Конструктор бота Be Soft</h2>
+  <p class="hint">Пароль — свойство ADMIN_PASSWORD в настройках Apps Script.</p>
   <form id="loginForm">
     <label class="f"><span>Пароль</span><input type="password" id="pass" autocomplete="current-password" required></label>
     <div class="row"><button class="btn" type="submit">Войти</button><span class="msg err" id="loginErr"></span></div>
   </form>
 </div>
 
-<div class="wrap" id="app" hidden>
+<div class="app" id="app" hidden>
   <header>
     <div class="logo">Bs.</div>
     <div><h1>Бот Be Soft</h1><div class="bot" id="botName">—</div></div>
+    <nav role="tablist">
+      <button role="tab" data-tab="flow" aria-selected="true">Сценарий</button>
+      <button role="tab" data-tab="bc" aria-selected="false">Рассылка</button>
+      <button role="tab" data-tab="users" aria-selected="false">Клиенты</button>
+      <button role="tab" data-tab="set" aria-selected="false">Настройки</button>
+    </nav>
     <div class="sp"></div>
+    <div class="stats" id="stats"></div>
     <button class="btn plain" id="logout">Выйти</button>
   </header>
 
-  <div class="stats" id="stats"></div>
-
-  <nav role="tablist">
-    <button role="tab" data-tab="msgs" aria-selected="true">Сообщения</button>
-    <button role="tab" data-tab="bc" aria-selected="false">Рассылка</button>
-    <button role="tab" data-tab="users" aria-selected="false">Клиенты</button>
-    <button role="tab" data-tab="set" aria-selected="false">Настройки</button>
-  </nav>
-
-  <!-- Сообщения -->
-  <section data-panel="msgs">
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div><h2>Тексты бота</h2><p class="hint" style="margin:0">Подстановки: <code>{name}</code> — имя клиента, <code>{manager}</code> — имя менеджера, <code>{phone}</code> — телефон. Разметка: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</p></div>
-        <div class="seg" id="langSeg"><button data-l="ru" aria-pressed="true">Русский</button><button data-l="uz" aria-pressed="false">O‘zbekcha</button></div>
+  <main>
+    <!-- Сценарий -->
+    <section data-panel="flow" style="overflow:hidden">
+      <div id="canvas">
+        <div id="world"><svg id="edges"><defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7FA8D9"/></marker><marker id="arrv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B49CFF"/></marker></defs><g id="edgeG"></g></svg><div id="nodes"></div></div>
       </div>
-    </div>
-    <div id="msgForm"></div>
-  </section>
-
-  <!-- Рассылка -->
-  <section data-panel="bc" hidden>
-    <div class="card">
-      <h2>Новая рассылка</h2>
-      <p class="hint">Сообщение уйдёт всем выбранным клиентам, кто не заблокировал бота.</p>
-      <label class="f"><span>Кому</span><select id="bcSeg"></select></label>
-      <label class="f"><span>Текст</span><textarea id="bcText" maxlength="4000" placeholder="Например: Друзья, до пятницы внедрение amoCRM со скидкой 20%…"></textarea><small>HTML-разметка: &lt;b&gt;, &lt;i&gt;, &lt;a href&gt;. До 4000 символов.</small></label>
-      <div class="grid2">
-        <label class="f"><span>Кнопка (необязательно)</span><input type="text" id="bcBtn" maxlength="60" placeholder="Подробнее"></label>
-        <label class="f"><span>Ссылка кнопки</span><input type="url" id="bcUrl" placeholder="https://besoft.uz"></label>
+      <div class="toolbar">
+        <button class="btn sm" id="addStep">+ Сообщение</button>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <button class="btn plain sm" id="zOut" title="Отдалить">−</button><span class="z" id="zVal">100%</span><button class="btn plain sm" id="zIn" title="Приблизить">+</button>
+        <button class="btn plain sm" id="zFit" title="Показать весь сценарий">⤢ Весь</button>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <div class="seg" id="langSeg" title="Язык текстов"><button data-l="ru" aria-pressed="true">RU</button><button data-l="uz" aria-pressed="false">UZ</button></div>
       </div>
-      <p class="hint" style="margin-bottom:6px">Предпросмотр</p>
-      <div class="preview"><div class="bubble" id="bcPrev">…</div></div>
-      <div class="row" style="margin-top:14px"><button class="btn" id="bcSend">Отправить</button><span class="msg" id="bcMsg"></span></div>
-    </div>
-    <div class="card" id="bcJob" hidden>
-      <h2>Последняя рассылка</h2>
-      <div class="bar"><i id="bcBar"></i></div>
-      <div id="bcJobInfo" class="hint" style="margin:0"></div>
-    </div>
-  </section>
+      <div class="legend"><span><i></i>кнопка ведёт к шагу</span><span><i class="t"></i>следом отправить автоматически</span><span>Тяните от <b style="color:var(--blue)">●</b> кнопки к карточке, чтобы связать · колесо — двигать, Ctrl+колесо — масштаб</span></div>
+      <aside id="side"></aside>
+    </section>
 
-  <!-- Клиенты -->
-  <section data-panel="users" hidden>
-    <div class="card">
-      <div class="row" style="justify-content:space-between;margin-bottom:12px">
-        <h2 style="margin:0">Клиенты в боте</h2>
-        <div class="row"><input type="text" id="uSearch" placeholder="Поиск: имя, телефон, @username" style="width:260px"><button class="btn ghost" id="uReload">Обновить</button></div>
+    <!-- Рассылка -->
+    <section data-panel="bc" hidden><div class="page">
+      <div class="card">
+        <h2>Новая рассылка</h2>
+        <p class="hint">Сообщение уйдёт выбранным клиентам, кто не заблокировал бота.</p>
+        <div class="grid2">
+          <div>
+            <label class="f"><span>Кому</span><select id="bcSeg"></select></label>
+            <label class="f"><span>Картинка (необязательно)</span></label>
+            <div class="imgbox" id="bcImgBox"><span>Перетащите картинку или нажмите, чтобы выбрать</span></div>
+            <input type="file" id="bcFile" accept="image/*" hidden>
+            <label class="f" style="margin-top:12px"><span>Текст</span><textarea id="bcText" maxlength="4000" placeholder="Например: до пятницы внедрение amoCRM со скидкой 20%"></textarea><small id="bcCnt"></small></label>
+            <div class="grid2">
+              <label class="f"><span>Кнопка</span><input type="text" id="bcBtn" maxlength="60" placeholder="Подробнее"></label>
+              <label class="f"><span>Ссылка кнопки</span><input type="url" id="bcUrl" placeholder="https://besoft.uz"></label>
+            </div>
+          </div>
+          <div>
+            <div class="sect"><h3>Предпросмотр</h3><div class="preview"><div class="tgm" id="bcPrev"></div></div></div>
+          </div>
+        </div>
+        <div class="row"><button class="btn" id="bcSend">Отправить</button><span class="msg" id="bcMsg"></span></div>
       </div>
-      <div class="tablewrap"><table><thead><tr><th>Клиент</th><th class="hide-sm">Телефон</th><th>Этап</th><th class="hide-sm">Пришёл</th><th></th></tr></thead><tbody id="uBody"></tbody></table></div>
-    </div>
-  </section>
+      <div class="card" id="bcJob" hidden><h2>Последняя рассылка</h2><div class="bar"><i id="bcBar"></i></div><div id="bcJobInfo" class="hint" style="margin:0"></div></div>
+    </div></section>
 
-  <!-- Настройки -->
-  <section data-panel="set" hidden>
-    <div class="card">
-      <h2>Менеджер</h2>
-      <p class="hint">Используется в кнопках «Позвонить» и «Написать менеджеру» и в подстановках {manager}, {phone}.</p>
-      <div class="grid2">
-        <label class="f"><span>Имя</span><input type="text" id="mName" maxlength="60"></label>
-        <label class="f"><span>Telegram username</span><input type="text" id="mUser" maxlength="64" placeholder="sarvinoz_besoft"></label>
-        <label class="f"><span>Телефон</span><input type="text" id="mPhone" maxlength="30"></label>
+    <!-- Клиенты -->
+    <section data-panel="users" hidden><div class="page">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <h2 style="margin:0">Клиенты в боте</h2>
+          <div class="row"><input type="text" id="uSearch" placeholder="Имя, телефон, @username" style="width:240px"><button class="btn ghost" id="uReload">Обновить</button></div>
+        </div>
+        <div class="tablewrap"><table><thead><tr><th>Клиент</th><th class="hide-sm">Телефон</th><th>Статус</th><th class="hide-sm">Пришёл</th><th></th></tr></thead><tbody id="uBody"></tbody></table></div>
       </div>
-      <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="notify"> Присылать ответы и сообщения клиентов в тему «Лиды» (бот Пятница)</label>
-    </div>
-    <div class="card">
-      <h2>Сбросить тексты</h2>
-      <p class="hint">Вернёт все сообщения и вопросы к исходным.</p>
-      <button class="btn danger" id="reset">Сбросить к исходным</button>
-    </div>
-  </section>
+    </div></section>
 
-  <div class="sticky" id="saveBar" hidden><span class="msg" id="saveMsg">Есть несохранённые изменения</span><button class="btn plain" id="undo">Отменить</button><button class="btn" id="save">Сохранить</button></div>
+    <!-- Настройки -->
+    <section data-panel="set" hidden><div class="page">
+      <div class="card">
+        <h2>Менеджер</h2>
+        <p class="hint">Подставляется вместо {manager} и {phone}; телефон показывается по кнопке «Позвонить».</p>
+        <div class="grid2">
+          <label class="f"><span>Имя</span><input type="text" id="mName" maxlength="60"></label>
+          <label class="f"><span>Телефон</span><input type="text" id="mPhone" maxlength="30"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="notify"><span>Присылать ответы и сообщения клиентов в тему «Лиды» (бот Пятница)</span></label>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h2 style="margin:0">Системные тексты</h2><div class="seg" id="sysSeg"><button data-l="ru" aria-pressed="true">RU</button><button data-l="uz" aria-pressed="false">UZ</button></div></div>
+        <p class="hint" style="margin-top:6px">Эти сообщения бот отправляет вне сценария.</p>
+        <div id="sysForm"></div>
+      </div>
+      <div class="card">
+        <h2>Сбросить сценарий</h2>
+        <p class="hint">Вернёт исходные шаги, тексты и настройки. Текущий сценарий будет потерян.</p>
+        <button class="btn danger" id="reset">Сбросить к исходному</button>
+      </div>
+    </div></section>
+  </main>
 </div>
+
+<div class="savebar" id="saveBar" hidden><span class="msg" id="saveMsg">Есть несохранённые изменения</span><button class="btn plain sm" id="undo">Отменить</button><button class="btn sm" id="save">Сохранить</button></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="imgFile" accept="image/*" hidden>
 
 <dialog id="dlg">
   <h2 style="margin:0 0 4px;font-size:16px" id="dlgTitle">Написать клиенту</h2>
-  <p class="hint" id="dlgHint" style="margin:0 0 12px">Сообщение придёт от бота Be Soft.</p>
+  <p class="hint" style="margin:0 0 12px">Сообщение придёт от бота Be Soft.</p>
   <textarea id="dlgText" maxlength="4000"></textarea>
   <div class="row" style="margin-top:12px;justify-content:flex-end"><span class="msg" id="dlgMsg" style="flex:1"></span><button class="btn plain" id="dlgCancel">Отмена</button><button class="btn" id="dlgSend">Отправить</button></div>
 </dialog>
@@ -181,246 +292,527 @@ dialog::backdrop{background:rgba(10,11,13,.4)}
 const API = "https://script.google.com/macros/s/AKfycbzcg-IZvPC1EU9NYeTO4m2XqFvlSlDxAE4wQcXGeyTgEAuM6Waj-qu1_OkrnSPa9LT3EQ/exec";
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const store = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }, del(k) { try { sessionStorage.removeItem(k); } catch (e) {} } };
+const store = {
+  get(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch (e) { return def; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  sget(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  sset(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }, sdel(k) { try { sessionStorage.removeItem(k); } catch (e) {} }
+};
+const toast = t => { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); };
 
-let password = store.get('bs_pass') || '';
-let settings = null, saved = null, lang = 'ru', users = [], stats = null, pollTimer = null;
+let password = store.sget('bs_pass') || '';
+let S = null, saved = null, lang = 'ru', sysLang = 'ru', sel = null, users = [], stats = null, pollTimer = null;
+const view = { x: 40, y: 80, k: 1 };
 
 async function api(action, extra) {
   const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ bsAdmin: 1, password, action }, extra || {})) });
   const data = await res.json();
-  if (!data.ok) {
-    if (data.auth === false) logout('Неверный пароль');
-    throw new Error(data.error || 'Ошибка');
-  }
+  if (!data.ok) { if (data.auth === false) logout('Неверный пароль'); throw new Error(data.error || 'Ошибка'); }
   return data.data;
 }
 
-/* ---------- Вход ---------- */
-function logout(msg) {
-  password = ''; store.del('bs_pass');
-  $('#app').hidden = true; $('#login').hidden = false; $('#loginErr').textContent = msg || '';
-}
+/* ================= Вход ================= */
+function logout(msg) { password = ''; store.sdel('bs_pass'); $('#app').hidden = true; $('#saveBar').hidden = true; $('#login').hidden = false; $('#loginErr').textContent = msg || ''; }
 $('#logout').onclick = () => logout();
 $('#loginForm').onsubmit = async e => {
-  e.preventDefault();
-  password = $('#pass').value; $('#loginErr').textContent = 'Проверяю…';
-  try { await boot(); store.set('bs_pass', password); $('#pass').value = ''; }
-  catch (err) { $('#loginErr').textContent = err.message; }
+  e.preventDefault(); password = $('#pass').value; $('#loginErr').textContent = 'Проверяю…';
+  try { await boot(); store.sset('bs_pass', password); $('#pass').value = ''; } catch (err) { $('#loginErr').textContent = err.message; }
 };
-
 async function boot() {
   const me = await api('login');
   $('#botName').innerHTML = me.bot ? '<a href="https://t.me/' + esc(me.bot) + '" target="_blank" rel="noopener">@' + esc(me.bot) + '</a>' : 'токен бота не задан';
-  const s = await api('getSettings');
-  settings = s.settings; saved = JSON.stringify(settings);
+  S = (await api('getSettings')).settings; saved = JSON.stringify(S);
   $('#login').hidden = true; $('#app').hidden = false;
-  renderMsgs(); renderSet(); dirty();
-  loadStats(); loadJob();
+  renderAll(); requestAnimationFrame(() => { fit(); drawEdges(); }); dirty(); loadStats(); loadUsers(true); loadJob();
 }
 
-/* ---------- Вкладки ---------- */
+/* ================= Вкладки ================= */
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
   document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
-  if (b.dataset.tab === 'users' && !users.length) loadUsers();
+  if (b.dataset.tab === 'users') loadUsers();
   if (b.dataset.tab === 'bc') { loadStats(); loadJob(); }
+  if (b.dataset.tab === 'flow') drawEdges();
 });
 
-/* ---------- Статистика ---------- */
 async function loadStats() {
   try {
     stats = await api('stats');
-    $('#stats').innerHTML = [['Всего в боте', stats.total], ['Ответили на вопросы', stats.done], ['Привязаны к сделке', stats.withLead], ['Заблокировали', stats.blocked]]
-      .map(x => '<div class="stat"><b>' + x[1] + '</b><span>' + x[0] + '</span></div>').join('');
+    $('#stats').innerHTML = 'В боте <b>' + stats.total + '</b> · ответили <b>' + stats.done + '</b> · со сделкой <b>' + stats.withLead + '</b>';
     const seg = $('#bcSeg'), cur = seg.value || 'all', g = stats.segments;
-    seg.innerHTML = [['all', 'Все клиенты'], ['ru', 'Русскоязычные'], ['uz', 'Узбекоязычные'], ['done', 'Ответили на вопросы'], ['notdone', 'Не ответили на вопросы']]
+    seg.innerHTML = [['all', 'Все клиенты'], ['ru', 'Русскоязычные'], ['uz', 'Узбекоязычные'], ['done', 'Дошли до отчёта'], ['notdone', 'Не дошли до отчёта']]
       .map(x => '<option value="' + x[0] + '">' + x[1] + ' — ' + g[x[0]] + '</option>').join('');
     seg.value = cur;
   } catch (err) { console.error(err); }
 }
 
-/* ---------- Сообщения ---------- */
-const FIELDS = [
-  ['welcome', 'Приветствие (клиент пришёл с сайта)', 'Когда бот нашёл заявку. {name} — имя из заявки.', 'ta'],
-  ['welcomeNoName', 'Приветствие (заявка не найдена)', 'Если клиент открыл бота сам, без перехода с сайта.', 'ta'],
-  ['startBtn', 'Кнопка «начать вопросы»', '', 'in'],
-  ['sharePrompt', 'Просьба отправить номер', 'Показывается, если бот не знает телефон клиента.', 'ta'],
-  ['shareBtn', 'Кнопка «отправить номер»', '', 'in'],
-  ['QUESTIONS'],
-  ['timeQuestion', 'Вопрос о времени созвона', '', 'ta'],
-  ['TIME'],
-  ['final', 'Финальное сообщение', 'После ответа на все вопросы.', 'ta'],
-  ['callBtn', 'Кнопка «Позвонить»', '', 'in'],
-  ['callText', 'Ответ на «Позвонить»', '{phone} — телефон менеджера.', 'ta'],
-  ['writeBtn', 'Кнопка «Написать менеджеру»', '', 'in'],
-  ['textReceived', 'Ответ на свободное сообщение', 'Сообщение клиента уходит менеджеру в «Лиды».', 'ta'],
-  ['langBtn', 'Кнопка смены языка', '', 'in']
-];
-
-function renderMsgs() {
-  const L = settings[lang];
-  let html = '';
-  let block = '';
-  const flush = (title, hint) => { if (block) html += '<div class="card">' + (title ? '<h2>' + title + '</h2><p class="hint">' + hint + '</p>' : '') + block + '</div>'; block = ''; };
-  FIELDS.forEach(f => {
-    if (f[0] === 'QUESTIONS') {
-      flush();
-      const qs = L.questions.map((q, i) => '<div class="q"><div class="row"><b>Вопрос ' + (i + 1) + '</b><span>' +
-        (i > 0 ? '<button class="btn plain" data-qup="' + i + '" title="Выше">↑</button>' : '') +
-        '<button class="btn plain" data-qdel="' + i + '">Удалить</button></span></div>' +
-        '<label class="f"><span>Текст вопроса</span><textarea data-q="' + i + '" style="min-height:60px">' + esc(q.text) + '</textarea></label>' +
-        '<label class="f" style="margin:0"><span>Варианты ответа — каждый с новой строки (2–8)</span><textarea data-qo="' + i + '" style="min-height:80px">' + esc(q.options.join('\n')) + '</textarea></label></div>').join('');
-      html += '<div class="card"><h2>Вопросы</h2><p class="hint">Клиент отвечает кнопками. Вопрос добавляется и удаляется сразу на обоих языках — не забудьте перевести.</p>' + qs +
-        (L.questions.length < 8 ? '<button class="btn ghost" id="qAdd">+ Добавить вопрос</button>' : '') + '</div>';
-      return;
-    }
-    if (f[0] === 'TIME') {
-      block += '<label class="f"><span>Варианты времени — каждый с новой строки</span><textarea data-time>' + esc(L.timeOptions.join('\n')) + '</textarea></label>';
-      flush('Время созвона', 'Последний вопрос перед финальным сообщением.');
-      return;
-    }
-    const [k, label, hint, kind] = f;
-    const input = kind === 'in' ? '<input type="text" maxlength="60" data-k="' + k + '" value="' + esc(L[k]) + '">' : '<textarea data-k="' + k + '">' + esc(L[k]) + '</textarea>';
-    block += '<label class="f"><span>' + label + '</span>' + input + (hint ? '<small>' + hint + '</small>' : '') + '</label>';
-    if (k === 'shareBtn') flush('Начало диалога', 'Первое, что видит клиент после перехода в бота.');
-    if (k === 'langBtn') flush('Кнопки и ответы', '');
-  });
-  $('#msgForm').innerHTML = html;
-  $('#msgForm').querySelectorAll('[data-k]').forEach(el => el.oninput = () => { settings[lang][el.dataset.k] = el.value; dirty(); });
-  $('#msgForm').querySelectorAll('[data-q]').forEach(el => el.oninput = () => { settings[lang].questions[el.dataset.q].text = el.value; dirty(); });
-  $('#msgForm').querySelectorAll('[data-qo]').forEach(el => el.oninput = () => { settings[lang].questions[el.dataset.qo].options = lines(el.value); dirty(); });
-  const t = $('#msgForm [data-time]'); t.oninput = () => { settings[lang].timeOptions = lines(t.value); dirty(); };
-  $('#msgForm').querySelectorAll('[data-qdel]').forEach(b => b.onclick = () => {
-    if (!confirm('Удалить вопрос ' + (+b.dataset.qdel + 1) + ' на обоих языках?')) return;
-    ['ru', 'uz'].forEach(l => settings[l].questions.splice(+b.dataset.qdel, 1)); renderMsgs(); dirty();
-  });
-  $('#msgForm').querySelectorAll('[data-qup]').forEach(b => b.onclick = () => {
-    const i = +b.dataset.qup;
-    ['ru', 'uz'].forEach(l => { const q = settings[l].questions; [q[i - 1], q[i]] = [q[i], q[i - 1]]; }); renderMsgs(); dirty();
-  });
-  const add = $('#qAdd');
-  if (add) add.onclick = () => {
-    settings.ru.questions.push({ text: 'Новый вопрос', options: ['Вариант 1', 'Вариант 2'] });
-    settings.uz.questions.push({ text: 'Yangi savol', options: ['1-variant', '2-variant'] });
-    renderMsgs(); dirty();
-  };
+/* ================= Утилиты сценария ================= */
+const steps = () => S.flow.steps;
+const stepById = id => steps().find(s => s.id === id);
+const tr = (o, l) => (o && String(o[l] || '').trim() ? o[l] : (o && o.ru) || '');
+const newId = () => { let id; do { id = 's' + Math.random().toString(36).slice(2, 7); } while (stepById(id)); return id; };
+const blankStep = (x, y) => ({ id: newId(), title: 'Новое сообщение', x: Math.round(x), y: Math.round(y), image: '', report: false, langBtn: false, then: '', text: { ru: '', uz: '' }, buttons: [] });
+const blankBtn = () => ({ label: { ru: 'Кнопка', uz: '' }, type: 'next', next: '', url: '', save: false });
+function tgHtml(t) { // безопасный предпросмотр Telegram-HTML
+  let h = esc(t);
+  h = h.replace(/&lt;(\/?)(b|strong|i|em|u|s|code)&gt;/g, '<$1$2>');
+  h = h.replace(/&lt;a href=&quot;(https?:\/\/[^"&<>]+)&quot;&gt;([\s\S]*?)&lt;\/a&gt;/g, '<a href="$1" target="_blank" rel="noopener">$2</a>');
+  h = h.replace(/\{(name|manager|phone)\}/g, (m, k) => '<span class="ph">' + ({ name: 'имя', manager: esc(S.manager.name || 'менеджер'), phone: esc(S.manager.phone || 'телефон') }[k]) + '</span>');
+  return h;
 }
-const lines = v => v.split('\n').map(x => x.trim()).filter(Boolean);
+const needsUz = s => !String(s.text.uz || '').trim() && String(s.text.ru || '').trim() || s.buttons.some(b => !String(b.label.uz || '').trim());
 
-document.querySelectorAll('#langSeg button').forEach(b => b.onclick = () => {
-  lang = b.dataset.l;
-  document.querySelectorAll('#langSeg button').forEach(x => x.setAttribute('aria-pressed', x === b));
-  renderMsgs();
+/* ================= Холст ================= */
+const canvas = $('#canvas'), world = $('#world'), nodesEl = $('#nodes'), edgeG = $('#edgeG');
+function applyView() { world.style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.k + ')'; $('#zVal').textContent = Math.round(view.k * 100) + '%'; }
+function zoomAt(k, cx, cy) {
+  k = Math.min(1.6, Math.max(0.3, k));
+  const r = canvas.getBoundingClientRect(); cx = cx == null ? r.width / 2 : cx; cy = cy == null ? r.height / 2 : cy;
+  view.x = cx - (cx - view.x) * k / view.k; view.y = cy - (cy - view.y) * k / view.k; view.k = k; applyView();
+}
+function fit() {
+  if (!steps().length) return;
+  const r = canvas.getBoundingClientRect(); if (!r.width) return;
+  const els = [...nodesEl.children];
+  const minX = Math.min(...steps().map(s => s.x)), minY = Math.min(...steps().map(s => s.y));
+  const maxX = Math.max(...steps().map(s => s.x + 272)), maxY = Math.max(...els.map(el => { const s = stepById(el.dataset.id); return s.y + el.offsetHeight; }));
+  const pad = 70, sideW = $('#side').classList.contains('open') && r.width > 760 ? 410 : 0;
+  const k = Math.min(1, (r.width - sideW - pad * 2) / (maxX - minX), (r.height - pad * 2 - 40) / (maxY - minY));
+  view.k = Math.max(0.3, k); view.x = pad - minX * view.k; view.y = pad + 40 - minY * view.k; applyView(); drawEdges();
+}
+$('#zIn').onclick = () => zoomAt(view.k * 1.2); $('#zOut').onclick = () => zoomAt(view.k / 1.2); $('#zFit').onclick = fit;
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) { const r = canvas.getBoundingClientRect(); zoomAt(view.k * Math.exp(-e.deltaY * 0.0022), e.clientX - r.left, e.clientY - r.top); }
+  else { view.x -= e.deltaX; view.y -= e.deltaY; applyView(); }
+}, { passive: false });
+function applyAndDraw() { applyView(); drawEdges(); }
+const toWorld = (cx, cy) => { const r = canvas.getBoundingClientRect(); return { x: (cx - r.left - view.x) / view.k, y: (cy - r.top - view.y) / view.k }; };
+
+let drag = null;
+canvas.addEventListener('pointerdown', e => {
+  const port = e.target.closest('.port-out'), head = e.target.closest('.nh'), node = e.target.closest('.node');
+  if (e.button !== 0) return;
+  if (port) { // тянем связь
+    e.preventDefault(); e.stopPropagation();
+    drag = { kind: 'link', step: port.dataset.step, btn: port.dataset.btn, then: port.dataset.then === '1', from: portPos(port) };
+    canvas.setPointerCapture(e.pointerId); return;
+  }
+  if (head && node) {
+    const s = stepById(node.dataset.id); select(s.id);
+    drag = { kind: 'node', id: s.id, sx: e.clientX, sy: e.clientY, ox: s.x, oy: s.y, moved: false };
+    canvas.setPointerCapture(e.pointerId); return;
+  }
+  if (node) { select(node.dataset.id); return; }
+  drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
+  canvas.classList.add('panning'); canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (drag.kind === 'pan') { view.x = drag.ox + e.clientX - drag.sx; view.y = drag.oy + e.clientY - drag.sy; drag.moved = drag.moved || Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4; applyView(); }
+  if (drag.kind === 'node') {
+    const s = stepById(drag.id); s.x = Math.round(drag.ox + (e.clientX - drag.sx) / view.k); s.y = Math.round(drag.oy + (e.clientY - drag.sy) / view.k);
+    drag.moved = true; const el = nodesEl.querySelector('[data-id="' + s.id + '"]'); el.style.left = s.x + 'px'; el.style.top = s.y + 'px'; drawEdges();
+  }
+  if (drag.kind === 'link') {
+    const p = toWorld(e.clientX, e.clientY); drawEdges({ from: drag.from, to: p, then: drag.then });
+    nodesEl.querySelectorAll('.node.drop').forEach(n => n.classList.remove('drop'));
+    const t = document.elementFromPoint(e.clientX, e.clientY), tn = t && t.closest('.node');
+    if (tn && tn.dataset.id !== drag.step) tn.classList.add('drop');
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const d = drag; drag = null; canvas.classList.remove('panning');
+  if (d.kind === 'pan' && !d.moved) select(null);
+  if (d.kind === 'node' && d.moved) dirty();
+  if (d.kind === 'link') {
+    nodesEl.querySelectorAll('.node.drop').forEach(n => n.classList.remove('drop'));
+    const t = document.elementFromPoint(e.clientX, e.clientY), tn = t && t.closest('.node');
+    const s = stepById(d.step);
+    let target = tn && tn.dataset.id !== d.step ? tn.dataset.id : null;
+    if (!target) {
+      const p = toWorld(e.clientX, e.clientY);
+      if (Math.hypot(p.x - d.from.x, p.y - d.from.y) < 30) { drawEdges(); return; }
+      const ns = blankStep(p.x + 10, p.y - 20); steps().push(ns); target = ns.id;
+      if (d.btn != null) { const b = s.buttons[d.btn]; if (b) ns.title = String(tr(b.label, 'ru')).slice(0, 40) || ns.title; }
+    }
+    if (d.then) s.then = target; else { const b = s.buttons[d.btn]; b.type = 'next'; b.next = target; }
+    renderAll(); select(target === d.step ? d.step : (stepById(target).text.ru ? d.step : target)); dirty();
+  }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !/input|textarea|select/i.test(document.activeElement.tagName) && !$('[data-panel=flow]').hidden) { e.preventDefault(); delStep(sel); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (!$('#saveBar').hidden) $('#save').click(); }
 });
 
-/* ---------- Настройки ---------- */
-function renderSet() {
-  $('#mName').value = settings.manager.name; $('#mUser').value = settings.manager.username;
-  $('#mPhone').value = settings.manager.phone; $('#notify').checked = settings.notify !== false;
+function portPos(el) { // центр порта в координатах мира
+  const r = el.getBoundingClientRect(); return toWorld(r.left + r.width / 2, r.top + r.height / 2);
 }
-[['#mName', 'name'], ['#mUser', 'username'], ['#mPhone', 'phone']].forEach(([s, k]) => $(s).oninput = () => { settings.manager[k] = $(s).value.trim(); dirty(); });
-$('#notify').onchange = () => { settings.notify = $('#notify').checked; dirty(); };
-$('#reset').onclick = async () => {
-  if (!confirm('Вернуть все тексты и вопросы к исходным?')) return;
-  try { settings = (await api('resetSettings')).settings; saved = JSON.stringify(settings); renderMsgs(); renderSet(); dirty(); alert('Готово'); }
+function inPos(id) { const el = nodesEl.querySelector('[data-id="' + id + '"] .port-in'); return el ? portPos(el) : null; }
+function curve(a, b) {
+  const dx = Math.max(60, Math.abs(b.x - a.x) * 0.5);
+  if (b.x < a.x + 20) { // обратная связь — дугой
+    return 'M' + a.x + ',' + a.y + ' C' + (a.x + 90) + ',' + a.y + ' ' + (b.x - 90) + ',' + b.y + ' ' + (b.x - 4) + ',' + b.y;
+  }
+  return 'M' + a.x + ',' + a.y + ' C' + (a.x + dx) + ',' + a.y + ' ' + (b.x - dx) + ',' + b.y + ' ' + (b.x - 4) + ',' + b.y;
+}
+function drawEdges(temp) {
+  let h = '';
+  nodesEl.querySelectorAll('.port-out').forEach(p => {
+    const s = stepById(p.dataset.step); if (!s) return;
+    const target = p.dataset.then === '1' ? s.then : (s.buttons[p.dataset.btn] || {}).next;
+    if (!target || !stepById(target)) return;
+    const a = portPos(p), b = inPos(target); if (!b) return;
+    const hot = sel && (sel === s.id || sel === target);
+    h += '<path class="' + (p.dataset.then === '1' ? 'then' : '') + (hot ? ' hot' : '') + '" marker-end="url(#' + (p.dataset.then === '1' ? 'arrv' : 'arr') + ')" d="' + curve(a, b) + '"/>';
+  });
+  if (temp) h += '<path class="temp" d="' + curve(temp.from, temp.to) + '"/>';
+  edgeG.innerHTML = h;
+}
+
+function nodeHtml(s) {
+  const isStart = S.flow.start === s.id;
+  const txt = tr(s.text, lang);
+  const btns = s.buttons.map((b, i) => {
+    const label = esc(tr(b.label, lang) || '…');
+    if (b.type === 'url') return '<div class="nbtn url"><span class="k">🔗</span><span class="l">' + label + '</span></div>';
+    if (b.type === 'call') return '<div class="nbtn call"><span class="k">📞</span><span class="l">' + label + '</span></div>';
+    return '<div class="nbtn" title="' + (b.save ? 'Ответ попадёт в отчёт' : '') + '">' + (b.save ? '<span class="k">📝</span>' : '') + '<span class="l">' + label + '</span>' +
+      '<span class="port-out' + (b.next ? '' : ' free') + '" data-step="' + s.id + '" data-btn="' + i + '" title="Потяните к карточке"></span></div>';
+  }).join('');
+  return '<div class="node' + (sel === s.id ? ' sel' : '') + '" data-id="' + s.id + '" style="left:' + s.x + 'px;top:' + s.y + 'px">' +
+    '<span class="port-in"></span>' +
+    '<div class="nh"><span class="t">' + esc(s.title) + '</span>' + (isStart ? '<span class="badge b-start">▶ Старт</span>' : '') +
+    (s.report ? '<span class="badge b-rep">📤 Отчёт</span>' : '') + (needsUz(s) ? '<span class="badge b-warn" title="Нет перевода на узбекский — клиенту покажется русский">UZ</span>' : '') + '</div>' +
+    '<div class="nb">' + (s.image ? '<img src="' + esc(s.image) + '" alt="" loading="lazy" draggable="false">' : '') +
+    '<div class="txt' + (txt ? '' : ' empty') + '">' + (txt ? tgHtml(txt) : (s.image ? '' : 'Пустое сообщение')) + '</div></div>' +
+    (btns ? '<div class="nbtns">' + btns + '</div>' : '') +
+    (s.langBtn ? '<div class="nbtns" style="padding-top:0"><div class="nbtn call" style="padding-right:10px">🌐 Смена языка</div></div>' : '') +
+    (s.then ? '<div class="nthen">⏭ Затем: ' + esc((stepById(s.then) || {}).title || '') + '<span class="port-out" data-step="' + s.id + '" data-then="1"></span></div>' : '') +
+    '<div class="nadd" data-add="' + s.id + '">+ кнопка</div></div>';
+}
+function renderNodes() {
+  nodesEl.innerHTML = steps().map(nodeHtml).join('');
+  nodesEl.querySelectorAll('[data-add]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); const s = stepById(el.dataset.add); s.buttons.push(blankBtn()); select(s.id); renderAll(); dirty();
+    setTimeout(() => { const ins = $('#side').querySelectorAll('[data-bl]'); if (ins.length) { ins[ins.length - 1].focus(); ins[ins.length - 1].select(); } }, 50);
+  });
+  nodesEl.querySelectorAll('img').forEach(img => img.onload = () => drawEdges());
+  drawEdges();
+}
+function renderAll() { renderNodes(); renderSide(); renderSys(); }
+
+$('#addStep').onclick = () => {
+  const r = canvas.getBoundingClientRect(), p = toWorld(r.left + r.width / 2 - 136 - ($('#side').classList.contains('open') && r.width > 760 ? 205 : 0), r.top + r.height / 2 - 100);
+  const s = blankStep(p.x, p.y); steps().push(s); renderAll(); select(s.id); dirty();
+  setTimeout(() => { const t = $('#side textarea'); if (t) t.focus(); }, 60);
+};
+document.querySelectorAll('#langSeg button').forEach(b => b.onclick = () => {
+  lang = b.dataset.l; document.querySelectorAll('#langSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderAll();
+});
+
+/* ================= Панель шага ================= */
+function select(id) {
+  sel = id;
+  nodesEl.querySelectorAll('.node').forEach(n => n.classList.toggle('sel', n.dataset.id === id));
+  renderSide(); drawEdges();
+  if (id) ensureVisible(id);
+}
+function ensureVisible(id) { // не прятать выбранную карточку под панелью справа
+  const el = nodesEl.querySelector('[data-id="' + id + '"]'); if (!el) return;
+  const cr = canvas.getBoundingClientRect(), nr = el.getBoundingClientRect();
+  const wide = cr.width > 760, right = cr.right - (wide ? 410 : 0) - 16, bottom = cr.bottom - (wide ? 16 : cr.height * 0.72 + 16);
+  let dx = 0, dy = 0;
+  if (nr.right > right) dx = right - nr.right; if (nr.left + dx < cr.left + 16) dx = cr.left + 16 - nr.left;
+  const room = Math.min(nr.height, 260); // хотя бы верх карточки должен быть над плашкой «Сохранить»
+  if (nr.top + room > bottom - 70) dy = bottom - 70 - room - nr.top; if (nr.top + dy < cr.top + 60) dy = cr.top + 60 - nr.top;
+  if (dx || dy) { view.x += dx; view.y += dy; applyView(); drawEdges(); }
+}
+function stepOptions(cur, self, empty) {
+  return (empty ? '<option value="">' + empty + '</option>' : '') + steps().filter(x => x.id !== self).map(x =>
+    '<option value="' + x.id + '"' + (x.id === cur ? ' selected' : '') + '>' + esc(x.title) + '</option>').join('') + '<option value="__new">+ Новое сообщение…</option>';
+}
+function previewHtml(s, l) {
+  const txt = tr(s.text, l);
+  const kb = s.buttons.map(b => '<span>' + (b.type === 'url' ? '🔗 ' : '') + esc(tr(b.label, l) || '…') + '</span>').join('') +
+    (s.langBtn ? '<span>' + esc(S.system[l].langBtn) + '</span>' : '');
+  return '<div class="tgb">' + (s.image ? '<img src="' + esc(s.image) + '" alt="">' : '') + '<div class="tx">' + (txt ? tgHtml(txt) : '') + '</div></div>' + (kb ? '<div class="tgk">' + kb + '</div>' : '');
+}
+function renderSide() {
+  const side = $('#side');
+  const s = sel && stepById(sel);
+  if (!s) { side.classList.remove('open'); side.innerHTML = ''; return; }
+  side.classList.add('open');
+  const isStart = S.flow.start === s.id, limit = s.image ? 1024 : 4096, L = lang.toUpperCase();
+  side.innerHTML =
+    '<div class="sh"><input type="text" id="sTitle" value="' + esc(s.title) + '" maxlength="80" title="Название шага (видно только вам и в отчёте)"><button class="ic" id="sClose" title="Закрыть">✕</button></div>' +
+    '<div class="sbody">' +
+      '<div class="sect"><div class="preview"><div class="tgm" id="sPrev">' + previewHtml(s, lang) + '</div></div></div>' +
+      '<div class="sect"><h3>Картинка</h3>' +
+        '<div class="imgbox" id="sImg">' + (s.image ? '<img src="' + esc(s.image) + '" alt=""><span>Заменить — нажмите или перетащите файл</span>' : '<span>🖼 Перетащите картинку или нажмите, чтобы выбрать</span>') + '</div>' +
+        '<div class="row" style="margin-top:6px"><button class="btn plain sm" id="sImgUrl">Вставить ссылку</button>' + (s.image ? '<button class="btn plain sm" id="sImgDel">Убрать картинку</button>' : '') + '</div></div>' +
+      '<div class="sect"><h3>Текст <span class="sp"></span><span class="seg" id="sLang"><button data-l="ru" aria-pressed="' + (lang === 'ru') + '">RU</button><button data-l="uz" aria-pressed="' + (lang === 'uz') + '">UZ</button></span></h3>' +
+        '<div class="tools"><button data-w="b" title="Жирный"><b>B</b></button><button data-w="i" title="Курсив"><i>I</i></button><button data-w="u" title="Подчёркнутый"><u>U</u></button><button data-w="a" title="Ссылка">🔗</button>' +
+        '<button data-v="{name}" title="Имя клиента">{имя}</button><button data-v="{manager}" title="Имя менеджера">{менеджер}</button><button data-v="{phone}" title="Телефон менеджера">{телефон}</button></div>' +
+        '<textarea id="sText" rows="7" placeholder="' + (lang === 'uz' ? 'Узбекский текст. Если оставить пустым — клиент увидит русский.' : 'Текст сообщения') + '">' + esc(s.text[lang] || '') + '</textarea>' +
+        '<div class="cnt" id="sCnt"></div></div>' +
+      '<div class="sect"><h3>Кнопки (' + L + ')</h3><div id="sBtns">' + s.buttons.map((b, i) => btnCard(s, b, i)).join('') + '</div>' +
+        (s.buttons.length < 12 ? '<button class="btn ghost sm" id="sAddBtn">+ Добавить кнопку</button>' : '') + '</div>' +
+      '<div class="sect"><h3>Поведение</h3>' +
+        '<label class="check"><input type="checkbox" id="sStart"' + (isStart ? ' checked disabled' : '') + '><span>Стартовое сообщение<small>Отправляется, когда клиент открывает бота.</small></span></label>' +
+        '<label class="check"><input type="checkbox" id="sReport"' + (s.report ? ' checked' : '') + '><span>Отправить отчёт менеджеру<small>Ответы клиента уйдут в «Лиды» и заметкой в сделку amoCRM (один раз).</small></span></label>' +
+        '<label class="check"><input type="checkbox" id="sLangBtn"' + (s.langBtn ? ' checked' : '') + '><span>Кнопка смены языка RU ⇄ UZ</span></label>' +
+        '<label class="f" style="margin-top:10px"><span>Сразу следом отправить</span><select id="sThen">' + stepOptions(s.then, s.id, '— ничего —') + '</select><small>Через секунду после этого сообщения бот сам отправит выбранное.</small></label>' +
+      '</div>' +
+    '</div>' +
+    '<div class="sfoot"><button class="btn ghost sm" id="sTest" title="Прислать это сообщение в Telegram">📲 Прислать себе</button><button class="btn plain sm" id="sDup">Дублировать</button><span class="sp"></span><button class="btn danger sm" id="sDel">Удалить</button></div>';
+  bindSide(s);
+  updCnt(s);
+}
+function btnCard(s, b, i) {
+  const types = [['next', '→ Перейти к сообщению'], ['url', '🔗 Открыть ссылку'], ['call', '📞 Показать телефон']];
+  return '<div class="bcard" data-i="' + i + '">' +
+    '<div class="row"><input type="text" data-bl="' + i + '" value="' + esc(b.label[lang] || '') + '" maxlength="64" placeholder="' + (lang === 'uz' ? esc(b.label.ru) + ' (по-узбекски)' : 'Текст кнопки') + '">' +
+      '<button class="ic" data-bup="' + i + '" title="Выше"' + (i ? '' : ' disabled') + '>↑</button><button class="ic" data-bdel="' + i + '" title="Удалить">✕</button></div>' +
+    '<div class="row sub"><select class="tp" data-bt="' + i + '">' + types.map(t => '<option value="' + t[0] + '"' + (b.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>').join('') + '</select>' +
+      (b.type === 'next' ? '<select data-bn="' + i + '">' + stepOptions(b.next, s.id, '— выберите —') + '</select>' : '') +
+      (b.type === 'url' ? '<input type="url" data-bu="' + i + '" value="' + esc(b.url || '') + '" placeholder="https://…">' : '') + '</div>' +
+    (b.type === 'next' ? '<label class="check" style="margin:6px 0 0"><input type="checkbox" data-bs="' + i + '"' + (b.save ? ' checked' : '') + '><span>Записать ответ в отчёт</span></label>' : '') +
+  '</div>';
+}
+function updCnt(s) {
+  const el = $('#sCnt'); if (!el) return; const lim = s.image ? 1024 : 4096, n = (s.text[lang] || '').length;
+  el.textContent = n + ' / ' + lim + (s.image ? ' (с картинкой)' : ''); el.classList.toggle('over', n > lim);
+}
+function refreshStep(s, full) { // перерисовать карточку и предпросмотр без потери фокуса
+  const el = nodesEl.querySelector('[data-id="' + s.id + '"]');
+  if (el) { const tmp = document.createElement('div'); tmp.innerHTML = nodeHtml(s); el.replaceWith(tmp.firstChild); }
+  renderNodesBind(); drawEdges();
+  const p = $('#sPrev'); if (p) p.innerHTML = previewHtml(s, lang);
+  if (full) renderSide();
+  dirty();
+}
+function renderNodesBind() {
+  nodesEl.querySelectorAll('[data-add]').forEach(el => el.onclick = e => {
+    e.stopPropagation(); const s = stepById(el.dataset.add); s.buttons.push(blankBtn()); select(s.id); renderAll(); dirty();
+    setTimeout(() => { const ins = $('#side').querySelectorAll('[data-bl]'); if (ins.length) { ins[ins.length - 1].focus(); ins[ins.length - 1].select(); } }, 50);
+  });
+  nodesEl.querySelectorAll('img').forEach(img => img.onload = () => drawEdges());
+}
+function newStepFrom(s, title) {
+  const ns = blankStep(s.x + 340, s.y + 40 + Math.random() * 60); ns.title = title || ns.title; steps().push(ns); return ns;
+}
+function bindSide(s) {
+  const side = $('#side');
+  $('#sClose').onclick = () => select(null);
+  $('#sTitle').oninput = e => { s.title = e.target.value; refreshStep(s); };
+  const ta = $('#sText');
+  ta.oninput = () => { s.text[lang] = ta.value; updCnt(s); refreshStep(s); };
+  side.querySelectorAll('[data-w]').forEach(b => b.onclick = () => wrap(ta, b.dataset.w));
+  side.querySelectorAll('[data-v]').forEach(b => b.onclick = () => insert(ta, b.dataset.v));
+  side.querySelectorAll('#sLang button').forEach(b => b.onclick = () => { $('#langSeg [data-l=' + b.dataset.l + ']').click(); });
+  // картинка
+  const box = $('#sImg');
+  box.onclick = () => { $('#imgFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) uploadTo(f, url => { s.image = url; refreshStep(s, true); }); }; $('#imgFile').click(); };
+  dropZone(box, f => uploadTo(f, url => { s.image = url; refreshStep(s, true); }));
+  $('#sImgUrl').onclick = () => { const u = prompt('Ссылка на картинку (https://…)', s.image || ''); if (u === null) return; if (u && !/^https:\/\//.test(u.trim())) return alert('Ссылка должна начинаться с https://'); s.image = u.trim(); refreshStep(s, true); };
+  if ($('#sImgDel')) $('#sImgDel').onclick = () => { s.image = ''; refreshStep(s, true); };
+  // кнопки
+  side.querySelectorAll('[data-bl]').forEach(el => el.oninput = () => { s.buttons[el.dataset.bl].label[lang] = el.value; refreshStep(s); });
+  side.querySelectorAll('[data-bt]').forEach(el => el.onchange = () => { const b = s.buttons[el.dataset.bt]; b.type = el.value; if (b.type !== 'next') b.save = false; refreshStep(s, true); });
+  side.querySelectorAll('[data-bn]').forEach(el => el.onchange = () => {
+    const b = s.buttons[el.dataset.bn];
+    if (el.value === '__new') { const ns = newStepFrom(s, String(b.label.ru).slice(0, 40)); b.next = ns.id; renderAll(); select(ns.id); dirty(); return; }
+    b.next = el.value; refreshStep(s);
+  });
+  side.querySelectorAll('[data-bu]').forEach(el => el.oninput = () => { s.buttons[el.dataset.bu].url = el.value.trim(); dirty(); });
+  side.querySelectorAll('[data-bs]').forEach(el => el.onchange = () => { s.buttons[el.dataset.bs].save = el.checked; refreshStep(s); });
+  side.querySelectorAll('[data-bdel]').forEach(el => el.onclick = () => { s.buttons.splice(+el.dataset.bdel, 1); refreshStep(s, true); });
+  side.querySelectorAll('[data-bup]').forEach(el => el.onclick = () => { const i = +el.dataset.bup; [s.buttons[i - 1], s.buttons[i]] = [s.buttons[i], s.buttons[i - 1]]; refreshStep(s, true); });
+  if ($('#sAddBtn')) $('#sAddBtn').onclick = () => { s.buttons.push(blankBtn()); refreshStep(s, true); const ins = side.querySelectorAll('[data-bl]'); ins[ins.length - 1].focus(); ins[ins.length - 1].select(); };
+  // поведение
+  $('#sStart').onchange = () => { S.flow.start = s.id; renderAll(); dirty(); };
+  $('#sReport').onchange = e => { s.report = e.target.checked; refreshStep(s); };
+  $('#sLangBtn').onchange = e => { s.langBtn = e.target.checked; refreshStep(s); };
+  $('#sThen').onchange = e => {
+    if (e.target.value === '__new') { const ns = newStepFrom(s); s.then = ns.id; renderAll(); select(ns.id); dirty(); return; }
+    s.then = e.target.value; refreshStep(s);
+  };
+  $('#sDel').onclick = () => delStep(s.id);
+  $('#sDup').onclick = () => { const c = JSON.parse(JSON.stringify(s)); c.id = newId(); c.title = s.title + ' (копия)'; c.x += 30; c.y += 30; steps().push(c); renderAll(); select(c.id); dirty(); };
+  $('#sTest').onclick = () => testStep(s);
+}
+function delStep(id) {
+  const s = stepById(id); if (!s) return;
+  if (S.flow.start === id) return alert('Это стартовое сообщение. Сначала сделайте стартовым другое.');
+  const refs = steps().filter(x => x.id !== id && (x.then === id || x.buttons.some(b => b.next === id)));
+  if (!confirm('Удалить «' + s.title + '»?' + (refs.length ? '\nНа него ведут кнопки из: ' + refs.map(r => r.title).join(', ') + ' — они станут пустыми.' : ''))) return;
+  steps().forEach(x => { if (x.then === id) x.then = ''; x.buttons.forEach(b => { if (b.next === id) b.next = ''; }); });
+  S.flow.steps = steps().filter(x => x.id !== id); sel = null; renderAll(); dirty();
+}
+function wrap(ta, w) {
+  const a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, inner = v.slice(a, b) || (w === 'a' ? 'текст ссылки' : 'текст');
+  let open = '<' + w + '>', close = '</' + w + '>';
+  if (w === 'a') { const u = prompt('Адрес ссылки', 'https://'); if (!u || !/^https?:\/\//.test(u)) return; open = '<a href="' + u.replace(/"/g, '') + '">'; close = '</a>'; }
+  ta.value = v.slice(0, a) + open + inner + close + v.slice(b); ta.focus(); ta.setSelectionRange(a + open.length, a + open.length + inner.length); ta.dispatchEvent(new Event('input'));
+}
+function insert(ta, t) { const a = ta.selectionStart; ta.value = ta.value.slice(0, a) + t + ta.value.slice(ta.selectionEnd); ta.focus(); ta.setSelectionRange(a + t.length, a + t.length); ta.dispatchEvent(new Event('input')); }
+
+/* ---------- Загрузка картинок ---------- */
+function dropZone(el, cb) {
+  el.ondragover = e => { e.preventDefault(); el.classList.add('over'); };
+  el.ondragleave = () => el.classList.remove('over');
+  el.ondrop = e => { e.preventDefault(); el.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) cb(f); };
+}
+async function shrink(file) { // до 1600px и ~1.5 МБ, чтобы загрузка была быстрой
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 900 * 1024) return file;
+  const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(file); });
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.86));
+  return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+}
+async function uploadTo(file, cb) {
+  if (!/^image\//.test(file.type)) return alert('Нужна картинка');
+  toast('Загружаю картинку…');
+  try {
+    const f = await shrink(file);
+    if (f.size > 5 * 1024 * 1024) throw new Error('Картинка больше 5 МБ');
+    const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(f); });
+    const res = await api('uploadImage', { name: f.name, mime: f.type, data });
+    cb(res.url); toast('Картинка загружена');
+  } catch (err) { alert('Не удалось загрузить: ' + err.message); }
+}
+
+/* ---------- Проверка в Telegram ---------- */
+async function testStep(s) {
+  if (!users.length) await loadUsers(true);
+  const opts = users.filter(u => !u.blocked);
+  if (!opts.length) return alert('Сначала откройте бота в Telegram и нажмите /start — тогда сообщения можно будет присылать себе.');
+  let chat = store.get('bs_test_chat', '');
+  if (!opts.some(u => u.chat_id === chat)) {
+    const list = opts.slice(0, 15).map((u, i) => (i + 1) + '. ' + (u.username ? '@' + u.username : u.tg_name || u.chat_id)).join('\n');
+    const n = prompt('Кому прислать? Введите номер:\n' + list, '1'); if (!n) return;
+    const u = opts[+n - 1]; if (!u) return; chat = u.chat_id; store.set('bs_test_chat', chat);
+  }
+  try { await api('testStep', { chat_id: chat, step: s.id, settings: S }); toast('Отправлено в Telegram'); }
   catch (err) { alert(err.message); }
+}
+
+/* ================= Настройки ================= */
+const SYS = [['callText', 'Ответ на «Позвонить»', '{phone} — телефон менеджера', 'ta'], ['textReceived', 'Ответ на сообщение клиента', 'Само сообщение уходит менеджеру в «Лиды»', 'ta'],
+  ['sharePrompt', 'Просьба отправить номер', 'Если бот не нашёл заявку клиента', 'ta'], ['shareBtn', 'Кнопка «Отправить номер»', '', 'in'], ['langBtn', 'Кнопка смены языка', '', 'in']];
+function renderSys() {
+  $('#mName').value = S.manager.name || ''; $('#mPhone').value = S.manager.phone || ''; $('#notify').checked = S.notify !== false;
+  const L = S.system[sysLang];
+  $('#sysForm').innerHTML = SYS.map(([k, t, h, kind]) => '<label class="f"><span>' + t + '</span>' +
+    (kind === 'in' ? '<input type="text" maxlength="64" data-sys="' + k + '" value="' + esc(L[k]) + '">' : '<textarea rows="3" data-sys="' + k + '">' + esc(L[k]) + '</textarea>') +
+    (h ? '<small>' + h + '</small>' : '') + '</label>').join('');
+  $('#sysForm').querySelectorAll('[data-sys]').forEach(el => el.oninput = () => { S.system[sysLang][el.dataset.sys] = el.value; dirty(); });
+}
+$('#mName').oninput = e => { S.manager.name = e.target.value; dirty(); };
+$('#mPhone').oninput = e => { S.manager.phone = e.target.value; dirty(); };
+$('#notify').onchange = e => { S.notify = e.target.checked; dirty(); };
+document.querySelectorAll('#sysSeg button').forEach(b => b.onclick = () => { sysLang = b.dataset.l; document.querySelectorAll('#sysSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); renderSys(); });
+$('#reset').onclick = async () => {
+  if (!confirm('Вернуть исходный сценарий? Текущий будет потерян.')) return;
+  try { S = (await api('resetSettings')).settings; saved = JSON.stringify(S); sel = null; renderAll(); fit(); dirty(); toast('Сценарий сброшен'); } catch (err) { alert(err.message); }
 };
 
-/* ---------- Сохранение ---------- */
+/* ================= Сохранение ================= */
 function dirty() {
-  const changed = JSON.stringify(settings) !== saved;
+  const changed = S && JSON.stringify(S) !== saved;
   $('#saveBar').hidden = !changed;
-  $('#saveMsg').className = 'msg'; $('#saveMsg').textContent = 'Есть несохранённые изменения';
+  if (changed) { $('#saveMsg').className = 'msg'; $('#saveMsg').textContent = 'Есть несохранённые изменения'; }
 }
-$('#undo').onclick = () => { settings = JSON.parse(saved); renderMsgs(); renderSet(); dirty(); };
+$('#undo').onclick = () => { if (!confirm('Отменить все несохранённые изменения?')) return; S = JSON.parse(saved); if (sel && !stepById(sel)) sel = null; renderAll(); dirty(); };
 $('#save').onclick = async () => {
-  $('#save').disabled = true; $('#saveMsg').textContent = 'Сохраняю…';
+  $('#save').disabled = true; $('#saveMsg').className = 'msg'; $('#saveMsg').textContent = 'Сохраняю…';
   try {
-    settings = (await api('saveSettings', { settings })).settings; saved = JSON.stringify(settings);
-    renderMsgs(); renderSet(); $('#saveBar').hidden = false;
-    $('#saveMsg').className = 'msg ok'; $('#saveMsg').textContent = 'Сохранено. Бот уже отвечает новыми текстами.';
-    setTimeout(dirty, 2500);
+    S = (await api('saveSettings', { settings: S })).settings; saved = JSON.stringify(S); renderAll();
+    $('#saveBar').hidden = true; toast('Сохранено — бот уже работает по новому сценарию');
   } catch (err) { $('#saveMsg').className = 'msg err'; $('#saveMsg').textContent = err.message; }
   $('#save').disabled = false;
 };
-window.addEventListener('beforeunload', e => { if (settings && JSON.stringify(settings) !== saved) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (S && JSON.stringify(S) !== saved) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('resize', () => drawEdges());
 
-/* ---------- Рассылка ---------- */
+/* ================= Рассылка ================= */
+let bcImage = '';
 function bcPreview() {
-  const t = $('#bcText').value.trim() || 'Текст рассылки';
-  const safe = esc(t).replace(/&lt;(\/?)(b|i|u|s)&gt;/g, '<$1$2>');
-  $('#bcPrev').innerHTML = safe + ($('#bcBtn').value.trim() ? '<span class="kb">' + esc($('#bcBtn').value.trim()) + '</span>' : '');
+  const t = $('#bcText').value.trim(), btn = $('#bcBtn').value.trim();
+  $('#bcPrev').innerHTML = '<div class="tgb">' + (bcImage ? '<img src="' + esc(bcImage) + '" alt="">' : '') + '<div class="tx">' + (t ? tgHtml(t) : (bcImage ? '' : '<span style="color:#999">Текст рассылки</span>')) + '</div></div>' +
+    (btn ? '<div class="tgk"><span>🔗 ' + esc(btn) + '</span></div>' : '');
+  const lim = bcImage ? 1024 : 4000; $('#bcCnt').textContent = t.length + ' / ' + lim; $('#bcCnt').style.color = t.length > lim ? 'var(--red)' : '';
+  $('#bcImgBox').innerHTML = bcImage ? '<img src="' + esc(bcImage) + '" alt=""><span>Заменить · <a href="#" id="bcImgDel">убрать</a></span>' : '<span>🖼 Перетащите картинку или нажмите, чтобы выбрать</span>';
+  const d = $('#bcImgDel'); if (d) d.onclick = e => { e.preventDefault(); e.stopPropagation(); bcImage = ''; bcPreview(); };
 }
-['#bcText', '#bcBtn'].forEach(s => $(s).oninput = bcPreview); bcPreview();
+['#bcText', '#bcBtn'].forEach(s => $(s).oninput = bcPreview);
+$('#bcImgBox').onclick = () => $('#bcFile').click();
+$('#bcFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) uploadTo(f, url => { bcImage = url; bcPreview(); }); };
+dropZone($('#bcImgBox'), f => uploadTo(f, url => { bcImage = url; bcPreview(); }));
 $('#bcSend').onclick = async () => {
   const text = $('#bcText').value.trim(), btnText = $('#bcBtn').value.trim(), btnUrl = $('#bcUrl').value.trim();
-  if (!text) return $('#bcMsg').textContent = 'Введите текст';
+  if (!text && !bcImage) return $('#bcMsg').textContent = 'Добавьте текст или картинку';
   if (btnText && !/^https:\/\//.test(btnUrl)) return $('#bcMsg').textContent = 'Ссылка кнопки должна начинаться с https://';
   const seg = $('#bcSeg'), n = stats ? stats.segments[seg.value] : '?';
-  if (!confirm('Отправить рассылку: ' + seg.options[seg.selectedIndex].text.split(' — ')[0] + ' (' + n + ' чел.)?')) return;
+  if (!confirm('Отправить: ' + seg.options[seg.selectedIndex].text.split(' — ')[0] + ' (' + n + ' чел.)?')) return;
   $('#bcSend').disabled = true; $('#bcMsg').className = 'msg'; $('#bcMsg').textContent = 'Отправляю…';
   try {
-    const r = await api('broadcast', { text, btnText, btnUrl, segment: seg.value });
-    showJob(r.job); $('#bcMsg').className = 'msg ok'; $('#bcMsg').textContent = r.job.status === 'done' ? 'Готово' : 'Рассылка идёт, можно закрыть страницу';
-    $('#bcText').value = ''; bcPreview();
+    const r = await api('broadcast', { text, image: bcImage, btnText, btnUrl, segment: seg.value });
+    showJob(r.job); $('#bcMsg').className = 'msg ok'; $('#bcMsg').textContent = r.job.status === 'done' ? 'Готово' : 'Рассылка идёт, страницу можно закрыть';
+    $('#bcText').value = ''; bcImage = ''; bcPreview();
   } catch (err) { $('#bcMsg').className = 'msg err'; $('#bcMsg').textContent = err.message; }
   $('#bcSend').disabled = false;
 };
 async function loadJob() { try { showJob((await api('broadcastStatus')).job); } catch (err) {} }
 function showJob(job) {
-  clearTimeout(pollTimer);
-  if (!job) return $('#bcJob').hidden = true;
-  $('#bcJob').hidden = false;
-  const done = job.sent + job.failed;
+  clearTimeout(pollTimer); if (!job) return $('#bcJob').hidden = true;
+  $('#bcJob').hidden = false; const done = job.sent + job.failed;
   $('#bcBar').style.width = (job.total ? Math.round(done / job.total * 100) : 100) + '%';
-  $('#bcJobInfo').innerHTML = (job.status === 'done' ? '✅ Завершена' : '⏳ Идёт') + ' · отправлено ' + job.sent + ' из ' + job.total +
-    (job.failed ? ' · не доставлено ' + job.failed : '') + ' · ' + new Date(job.started).toLocaleString('ru-RU') +
-    '<div class="bubble" style="margin-top:10px;max-width:none">' + esc(job.text) + '</div>';
+  $('#bcJobInfo').innerHTML = (job.status === 'done' ? '✅ Завершена' : '⏳ Идёт') + ' · отправлено ' + job.sent + ' из ' + job.total + (job.failed ? ' · не доставлено ' + job.failed : '') +
+    ' · ' + new Date(job.started).toLocaleString('ru-RU');
   if (job.status === 'running') pollTimer = setTimeout(loadJob, 15000);
 }
 
-/* ---------- Клиенты ---------- */
-const STAGE = s => s === 'done' ? '<span class="tag done">Ответил</span>' : /^q\d+$|^time$/.test(s) ? '<span class="tag">Отвечает</span>' : '<span class="tag">Пришёл</span>';
-async function loadUsers() {
-  $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">Загружаю…</td></tr>';
-  try { users = (await api('users')).users; renderUsers(); }
-  catch (err) { $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>'; }
+/* ================= Клиенты ================= */
+const STAGE = u => u.done ? '<span class="tag done">Дошёл до отчёта</span>' : '<span class="tag">' + esc((stepById(u.stage) || {}).title || 'Пришёл') + '</span>';
+async function loadUsers(quiet) {
+  if (!quiet) $('#uBody').innerHTML = '<tr><td colspan="5" class="hint" style="text-align:center;padding:24px">Загружаю…</td></tr>';
+  try { users = (await api('users')).users; if (!quiet || !$('[data-panel=users]').hidden) renderUsers(); }
+  catch (err) { $('#uBody').innerHTML = '<tr><td colspan="5">' + esc(err.message) + '</td></tr>'; }
 }
 function renderUsers() {
-  const q = $('#uSearch').value.trim().toLowerCase();
-  const list = users.filter(u => !q || [u.name, u.tg_name, u.phone, u.username].join(' ').toLowerCase().includes(q.replace(/^@/, '')));
-  if (!list.length) return $('#uBody').innerHTML = '<tr><td colspan="5" class="empty">' + (users.length ? 'Никого не нашли' : 'Пока никто не пришёл в бота') + '</td></tr>';
+  const q = $('#uSearch').value.trim().toLowerCase().replace(/^@/, '');
+  const list = users.filter(u => !q || [u.name, u.tg_name, u.phone, u.username].join(' ').toLowerCase().includes(q));
+  if (!list.length) return $('#uBody').innerHTML = '<tr><td colspan="5" class="hint" style="text-align:center;padding:24px">' + (users.length ? 'Никого не нашли' : 'Пока никто не пришёл в бота') + '</td></tr>';
   $('#uBody').innerHTML = list.map(u => '<tr class="u" data-id="' + esc(u.chat_id) + '"><td><b>' + esc(u.name || u.tg_name || 'Без имени') + '</b>' +
     (u.username ? '<br><a href="https://t.me/' + esc(u.username) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">@' + esc(u.username) + '</a>' : '') +
-    ' <span class="tag">' + u.lang + '</span>' + (u.blocked ? ' <span class="tag blocked">заблокировал</span>' : '') + '</td>' +
-    '<td class="hide-sm">' + esc(u.phone || '—') + '</td><td>' + STAGE(u.stage) + '</td>' +
+    ' <span class="tag">' + esc(u.lang) + '</span>' + (u.blocked ? ' <span class="tag blocked">заблокировал</span>' : '') + '</td>' +
+    '<td class="hide-sm">' + esc(u.phone || '—') + '</td><td>' + STAGE(u) + '</td>' +
     '<td class="hide-sm">' + (u.started ? new Date(u.started).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</td>' +
-    '<td><button class="btn ghost" data-write="' + esc(u.chat_id) + '"' + (u.blocked ? ' disabled' : '') + '>Написать</button></td></tr>' +
-    '<tr hidden data-ans="' + esc(u.chat_id) + '"><td colspan="5"><div class="ans">' + (u.answers.length ? esc(u.answers.join('\n\n')) : 'Ещё не ответил на вопросы') + '</div></td></tr>').join('');
+    '<td><button class="btn ghost sm" data-write="' + esc(u.chat_id) + '"' + (u.blocked ? ' disabled' : '') + '>Написать</button></td></tr>' +
+    '<tr hidden data-ans="' + esc(u.chat_id) + '"><td colspan="5"><div class="ans">' + (u.answers.length ? esc(u.answers.join('\n\n')) : 'Ответов пока нет') + '</div></td></tr>').join('');
   $('#uBody').querySelectorAll('tr.u').forEach(tr => tr.onclick = () => { const a = $('#uBody').querySelector('[data-ans="' + CSS.escape(tr.dataset.id) + '"]'); a.hidden = !a.hidden; });
   $('#uBody').querySelectorAll('[data-write]').forEach(b => b.onclick = e => { e.stopPropagation(); openDlg(users.find(u => u.chat_id === b.dataset.write)); });
 }
 $('#uSearch').oninput = renderUsers;
 $('#uReload').onclick = () => { loadUsers(); loadStats(); };
-
 let dlgUser = null;
-function openDlg(u) {
-  dlgUser = u; $('#dlgTitle').textContent = 'Написать: ' + (u.name || u.tg_name || 'клиенту');
-  $('#dlgText').value = ''; $('#dlgMsg').textContent = ''; $('#dlg').showModal(); $('#dlgText').focus();
-}
+function openDlg(u) { dlgUser = u; $('#dlgTitle').textContent = 'Написать: ' + (u.name || u.tg_name || 'клиенту'); $('#dlgText').value = ''; $('#dlgMsg').textContent = ''; $('#dlg').showModal(); $('#dlgText').focus(); }
 $('#dlgCancel').onclick = () => $('#dlg').close();
 $('#dlgSend').onclick = async () => {
   const text = $('#dlgText').value.trim(); if (!text) return;
   $('#dlgSend').disabled = true; $('#dlgMsg').className = 'msg'; $('#dlgMsg').textContent = 'Отправляю…';
-  try { await api('sendTo', { chat_id: dlgUser.chat_id, text }); $('#dlgMsg').className = 'msg ok'; $('#dlgMsg').textContent = 'Отправлено'; setTimeout(() => $('#dlg').close(), 900); }
+  try { await api('sendTo', { chat_id: dlgUser.chat_id, text }); $('#dlgMsg').className = 'msg ok'; $('#dlgMsg').textContent = 'Отправлено'; setTimeout(() => $('#dlg').close(), 800); }
   catch (err) { $('#dlgMsg').className = 'msg err'; $('#dlgMsg').textContent = err.message; }
   $('#dlgSend').disabled = false;
 };
 
-/* ---------- Старт ---------- */
+/* ================= Старт ================= */
+bcPreview();
 if (password) boot().catch(err => logout(err.message)); else logout();
 </script>
 </body>
