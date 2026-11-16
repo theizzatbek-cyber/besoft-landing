@@ -684,6 +684,7 @@ export default {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('not found', { status: 404 });
     }
     const path = url.pathname.slice(5) || '/';
+    if (path !== '/' && (!env.TELEGRAM_TOKEN || !env.DB)) return new Response('Джефф не настроен: нет ключей или базы.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     try {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
       if (path === '/tg' && req.method === 'POST') {
