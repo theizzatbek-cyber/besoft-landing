@@ -1,5 +1,7 @@
 // Джефф — Telegram-бот на Cloudflare Workers: задачи, дедлайны, намазы, истигфар.
+// Работает внутри Cloudflare Pages (_worker.js) по адресам /jeff/*; остальной сайт отдаётся как есть.
 // Привязки: DB (D1). Секреты: TELEGRAM_TOKEN, LLM_API_KEY.
+// Расписание: отдельный маленький Worker раз в минуту вызывает /jeff/cron.
 
 const TZ_MIN = 300; // Asia/Tashkent, UTC+5, без перевода часов
 const APP_URL = 'https://besoft.uz/task/';
@@ -678,9 +680,13 @@ async function setup(env, origin) {
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    if (url.pathname !== '/jeff' && !url.pathname.startsWith('/jeff/')) {
+      return env.ASSETS ? env.ASSETS.fetch(req) : new Response('not found', { status: 404 });
+    }
+    const path = url.pathname.slice(5) || '/';
     try {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
-      if (url.pathname === '/tg' && req.method === 'POST') {
+      if (path === '/tg' && req.method === 'POST') {
         if (req.headers.get('X-Telegram-Bot-Api-Secret-Token') !== (await webhookSecret(env))) return new Response('forbidden', { status: 403 });
         const update = await req.json();
         ctx.waitUntil((async () => {
@@ -692,13 +698,21 @@ export default {
         })());
         return new Response('ok');
       }
-      if (url.pathname === '/setup') return json(req, await setup(env, url.origin));
-      if (url.pathname.startsWith('/api/')) {
+      if (path === '/setup') return json(req, await setup(env, url.origin + '/jeff'));
+      if (path === '/cron') { // тик расписания; не чаще раза в 45 секунд, кто бы ни вызвал
+        await ensureSchema(env);
+        const last = await getMeta(env, 'cron_at', 0);
+        if (Date.now() - last < 45000) return new Response('skip');
+        await setMeta(env, 'cron_at', Date.now());
+        ctx.waitUntil(runCron(env));
+        return new Response('ok');
+      }
+      if (path.startsWith('/api/')) {
         await ensureSchema(env);
         if (!(await authorized(env, req))) return json(req, { error: 'unauthorized' }, 401);
         const date = validDate(url.searchParams.get('day')) ? url.searchParams.get('day') : today();
-        if (url.pathname === '/api/state' && req.method === 'GET') return json(req, await apiState(env, date));
-        if (url.pathname === '/api/op' && req.method === 'POST') {
+        if (path === '/api/state' && req.method === 'GET') return json(req, await apiState(env, date));
+        if (path === '/api/op' && req.method === 'POST') {
           const op = await req.json();
           const res = await apiOp(env, op || {});
           if (res.error) return json(req, res, 400);
