@@ -25,8 +25,8 @@ const NOTION_VERSION = '2025-09-03';
 const NOTION_DB_TITLE = 'Задачи Джеффа';
 const P = { title: 'Задача', status: 'Статус', project: 'Проект', deadline: 'Дедлайн', created: 'Поставлена', step: 'Следующий шаг' };
 const STATUS_OPTIONS = [
-  { name: 'Новые', color: 'blue' }, { name: 'В работе', color: 'yellow' },
-  { name: 'На проверке', color: 'purple' }, { name: 'Готово', color: 'green' },
+  { name: 'Список', color: 'gray' }, { name: 'Задачи на неделю', color: 'blue' },
+  { name: 'Сегодня', color: 'orange' }, { name: 'Завтра', color: 'yellow' }, { name: 'Готово', color: 'green' },
 ];
 const DONE_RE = /готов|выполн|сделан|закрыт|done/i;
 
@@ -453,7 +453,8 @@ async function applyActions(env, actions) {
         if (a.type === 'add' && a.title) {
           const t = await createTask(env, cfg, schema, {
             title: String(a.title).trim().slice(0, 500), project: cleanProject(a.project), deadline: parseDt(a.deadline),
-            next_step: a.next_step ? String(a.next_step).slice(0, 300) : '', status: matchStatus(schema, a.status) || openStatusOf(schema),
+            next_step: a.next_step ? String(a.next_step).slice(0, 300) : '',
+            status: matchStatus(schema, a.status) || autoColumn(schema, parseDt(a.deadline)) || openStatusOf(schema),
           });
           out.push(taskCard(t));
         } else if (a.type === 'done') {
@@ -472,6 +473,7 @@ async function applyActions(env, actions) {
           if ('deadline' in a) f.deadline = parseDt(a.deadline);
           const st = matchStatus(schema, a.status);
           if (st) f.status = st;
+          else if (f.deadline && colKey(t.status)) { const ac = autoColumn(schema, f.deadline); if (ac && ac !== t.status) f.status = ac; }
           if (Object.keys(f).length) out.push(taskCard(await updateTask(env, schema, t.page, f), '✏️ Обновлена'));
         } else if (a.type === 'delete') {
           const t = await taskByNum(env, a.id);
@@ -516,6 +518,7 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"type": "add", "title": "...", "deadline": "YYYY-MM-DD HH:MM" или null, "project": "Newton" | "Be Soft" | null, "next_step": "..." или null}
 {"type": "done", "id": 12}
 {"type": "update", "id": 12, "title": "...", "deadline": "...", "project": "...", "next_step": "...", "status": "название статуса"}  (только изменяемые поля)
+Канбан в Notion: колонки «Список» (когда-нибудь), «Задачи на неделю», «Сегодня», «Завтра», «Готово». Колонку по дедлайну бот ставит сам (сегодня/просрочено → Сегодня, завтра → Завтра, до воскресенья → Задачи на неделю, позже или без срока → Список) и каждое утро двигает задачи ближе. Поэтому "status" указывай, только если пользователь явно назвал колонку («закинь в сегодня», «на неделю», «в список»).
 {"type": "delete", "id": 12}
 {"type": "list"}
 {"type": "prayer", "key": "bomdod" | "peshin" | "asr" | "shom" | "xufton" | "vitr", "done": true}
@@ -815,11 +818,47 @@ async function cronDigest(env, chat) {
   } catch { text = null; }
   if (text) await tg(env, 'sendMessage', { chat_id: chat, text });
 }
+// ---------- Колонки канбана: Список → Задачи на неделю → Завтра → Сегодня ----------
+const COL = { list: /^список/i, week: /недел/i, tomorrow: /^завтра/i, today: /^сегодня/i };
+const COL_RANK = ['list', 'week', 'tomorrow', 'today'];
+const colOf = (schema, key) => schema.statuses.find((s) => COL[key].test(s)) || null;
+const colKey = (status) => COL_RANK.find((k) => COL[k].test(status || '')) || null;
+function addDaysStr(d, n) { return new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+function weekEndStr(d) { return addDaysStr(d, (7 - new Date(d + 'T00:00:00Z').getUTCDay()) % 7); } // ближайшее воскресенье
+function autoColumnKey(deadline, now) {
+  if (!deadline) return null;
+  const d = String(deadline).slice(0, 10);
+  if (d <= now) return 'today';
+  if (d === addDaysStr(now, 1)) return 'tomorrow';
+  if (d <= weekEndStr(now)) return 'week';
+  return 'list';
+}
+const autoColumn = (schema, deadline, now = today()) => { const k = autoColumnKey(deadline, now); return k ? colOf(schema, k) : null; };
+// Раз в день двигаем задачи ближе к «Сегодня» по дедлайну; вчерашнее «Завтра» становится «Сегодня». Назад не двигаем.
+async function cronColumns(env) {
+  const day = today();
+  if ((await getMeta(env, 'col_day', '')) === day) return;
+  const { cfg, schema } = await taskCtx(env);
+  await setMeta(env, 'col_day', day);
+  const prev = await getMeta(env, 'col_prev_day', day);
+  await setMeta(env, 'col_prev_day', day);
+  for (const t of await openTasks(env, cfg, schema)) {
+    const cur = colKey(t.status);
+    if (!cur) continue; // свои колонки пользователя не трогаем
+    let target = autoColumnKey(t.deadline, day);
+    if (cur === 'tomorrow' && prev < day && !target) target = 'today';
+    if (target && COL_RANK.indexOf(target) > COL_RANK.indexOf(cur)) {
+      const name = colOf(schema, target);
+      if (name) { try { await updateTask(env, schema, t.page, { status: name }); } catch (e) { console.log('col move', String(e)); } }
+    }
+  }
+}
+
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
   if (!cfg.chat) return;
-  for (const job of [() => cronPrayers(env, cfg.chat), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
+  for (const job of [() => cronPrayers(env, cfg.chat), () => cronColumns(env), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
     try { await job(); } catch (e) { console.log('cron job failed', String(e && e.stack || e)); }
   }
 }
