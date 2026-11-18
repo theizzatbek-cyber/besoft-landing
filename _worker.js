@@ -770,6 +770,9 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), { status
 async function setup(env, origin) {
   await ensureSchema(env);
   const out = {};
+  const me = await tg(env, 'getMe', {});
+  if (!me.ok) out.telegramError = me.description || 'нет ответа от Telegram';
+  else out.bot = me.result.username;
   out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false })).ok;
   out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'commands' } })).ok;
   out.commands = (await tg(env, 'setMyCommands', { commands: [
@@ -783,8 +786,23 @@ async function setup(env, origin) {
   return out;
 }
 
+// Чистим ключи: пробелы, кавычки, «NAME=» в начале — частые ошибки при вставке.
+function cleanEnv(env) {
+  if (env.__clean) return env;
+  const out = Object.create(env);
+  for (const k of ['TELEGRAM_TOKEN', 'LLM_API_KEY', 'NOTION_TOKEN']) {
+    if (typeof env[k] !== 'string') continue;
+    let v = env[k].trim().replace(/^[A-Z_]+\s*=\s*/, '').trim().replace(/^["'`]+|["'`]+$/g, '').trim();
+    v = v.split(/\s+/)[0] || '';
+    out[k] = v;
+  }
+  out.__clean = true;
+  return out;
+}
+
 export default {
-  async fetch(req, env, ctx) {
+  async fetch(req, env0, ctx) {
+    const env = cleanEnv(env0);
     const url = new URL(req.url);
     if (url.pathname !== '/jeff' && !url.pathname.startsWith('/jeff/')) {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('not found', { status: 404 });
@@ -819,5 +837,5 @@ export default {
       return json({ error: 'server error' }, 500);
     }
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(runCron(env)); },
+  async scheduled(event, env, ctx) { ctx.waitUntil(runCron(cleanEnv(env))); },
 };
