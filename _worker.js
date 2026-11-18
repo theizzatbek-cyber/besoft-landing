@@ -18,6 +18,7 @@ const PRAYERS = [
   { key: 'shom', name: 'Шом' }, { key: 'xufton', name: 'Хуфтон' }, { key: 'vitr', name: 'Витр' },
 ];
 const VITR_AFTER_MIN = 20; // Витр напоминаем через 20 минут после Хуфтон
+const SUNRISE_BEFORE_MIN = 15; // о восходе пишем за 15 минут
 const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
 // Notion: названия колонок базы. Если переименуешь колонку в Notion — поменяй и здесь.
@@ -426,6 +427,7 @@ async function prayerStatus(env, date) {
     const s = sch && sch.list.find((x) => x.key === p.key);
     const done = day.prayers[p.key];
     lines.push(`${done ? '✅' : '▫️'} ${p.name}${s ? ' — ' + s.time : ''}${done && done !== true ? ` · отмечено в ${done}` : ''}`);
+    if (p.key === 'bomdod' && sch && sch.sunrise) lines.push(`🌅 Восход — ${sch.sunrise}`);
     if (!done) kb.push({ text: '✅ ' + p.name, callback_data: `p:${date}:${p.key}` });
   }
   lines.push('', `📿 Истигфар: <b>${day.istighfar}</b>`, `${day.vakia ? '✅' : '▫️'} Сура Аль-Вакиа`);
@@ -748,6 +750,14 @@ async function cronPrayers(env, chat) {
   const pings = {};
   for (const r of (await env.DB.prepare('SELECT * FROM pings WHERE date=?').bind(date).all()).results || []) pings[r.key] = r;
   const nowSec = Math.floor(Date.now() / 1000);
+  if (sch.sunrise && !pings.sunrise && hm >= addMin(sch.sunrise, -SUNRISE_BEFORE_MIN) && hm < sch.sunrise) {
+    const [sh, sm] = sch.sunrise.split(':').map(Number), [nh, nm] = hm.split(':').map(Number);
+    const left = sh * 60 + sm - nh * 60 - nm;
+    const bomdodOpen = !day.prayers.bomdod;
+    const r = await send(env, chat, `🌅 Восход в <b>${sch.sunrise}</b> — через ${left} мин.` + (bomdodOpen ? '\nБомдод ещё не отмечен — успей до восхода.' : ''),
+      bomdodOpen ? { reply_markup: { inline_keyboard: [[{ text: '✅ Бомдод прочитан', callback_data: `p:${date}:bomdod` }]] } } : undefined);
+    await env.DB.prepare('INSERT OR IGNORE INTO pings (date, key, last, msg) VALUES (?, ?, ?, ?)').bind(date, 'sunrise', nowSec, r.ok ? r.result.message_id : null).run();
+  }
   for (const p of sch.list) {
     if (day.prayers[p.key]) continue;
     const ping = pings[p.key];
@@ -832,6 +842,10 @@ async function cronDigest(env, chat) {
       { role: 'system', content: 'Ты — Джефф, ментор предпринимателя. Пиши коротко, прямо, на «ты», по-русски, обычным текстом без разметки. Ссылайся на задачи по номерам.\n\n' + (await contextHeader(env)) },
       { role: 'user', content: ask }], false);
   } catch { text = null; }
+  if (text && mode === 'evening') {
+    const t = await daySchedule(env, addDaysStr(date, 1)).catch(() => null);
+    if (t && t.sunrise) text += `\n\n🌅 Завтра: Бомдод ${t.list[0].time}, восход ${t.sunrise}.`;
+  }
   if (text) await tg(env, 'sendMessage', { chat_id: chat, text });
 }
 // ---------- Колонки канбана: Список → Задачи на неделю → Завтра → Сегодня ----------
