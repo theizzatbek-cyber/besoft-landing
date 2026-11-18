@@ -771,7 +771,13 @@ async function setup(env, origin) {
   await ensureSchema(env);
   const out = {};
   const me = await tg(env, 'getMe', {});
-  if (!me.ok) out.telegramError = me.description || 'нет ответа от Telegram';
+  if (!me.ok) {
+    out.telegramError = me.description || 'нет ответа от Telegram';
+    // Только вид ключей, без значений: помогает понять, что куда вставлено.
+    const kind = (v) => !v ? 'пусто' : /^\d{6,}:[\w-]{30,}$/.test(v) ? 'похоже на токен Telegram'
+      : /^AIza[\w-]{20,}$/.test(v) ? 'похоже на ключ Gemini' : /^(ntn_|secret_)/.test(v) ? 'похоже на ключ Notion' : 'непонятный формат, длина ' + v.length;
+    out.keys = { TELEGRAM_TOKEN: kind(env.TELEGRAM_TOKEN), LLM_API_KEY: kind(env.LLM_API_KEY), NOTION_TOKEN: kind(env.NOTION_TOKEN) };
+  }
   else out.bot = me.result.username;
   out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false })).ok;
   out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'commands' } })).ok;
