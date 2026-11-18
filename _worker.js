@@ -69,6 +69,9 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS nrem (page TEXT PRIMARY KEY, deadline TEXT NOT NULL, stage INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS days (date TEXT PRIMARY KEY, data TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS pings (date TEXT NOT NULL, key TEXT NOT NULL, last INTEGER NOT NULL, msg INTEGER, PRIMARY KEY (date, key))',
+  // режим «Занят»: входящие в личку владельца (Telegram Business) и в каких чатах уже ответили
+  'CREATE TABLE IF NOT EXISTS bizq (id INTEGER PRIMARY KEY AUTOINCREMENT, chat INTEGER NOT NULL, name TEXT, username TEXT, text TEXT, at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS bizdone (chat INTEGER NOT NULL, period TEXT NOT NULL, PRIMARY KEY (chat, period))',
 ];
 let schemaReady = false;
 async function ensureSchema(env) {
@@ -485,6 +488,10 @@ async function applyActions(env, actions) {
         const date = validDate(a.date) ? a.date : today();
         await markPrayer(env, date, a.key, a.done !== false);
         out.push(`${a.done === false ? '↩️ Снял отметку' : '✅ Отметил'}: ${prayerName(a.key)}`);
+      } else if (a.type === 'busy') {
+        const u = parseDt(a.until); out.push(esc(await setBusy(env, u ? localToMs(u) : null)));
+      } else if (a.type === 'free') {
+        const cfgB = await getMeta(env, 'cfg', {}); const r = await setFree(env, cfgB.chat); if (r) out.push(esc(r));
       } else if (a.type === 'istighfar' && isFinite(Number(a.value))) {
         const d = await getDay(env, today());
         d.istighfar = Math.max(0, Math.round(a.mode === 'add' ? d.istighfar + Number(a.value) : Number(a.value)));
@@ -525,6 +532,8 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"type": "istighfar", "value": 300, "mode": "set" | "add"}
 {"type": "vakia", "done": true}
 {"type": "prayers"}  (показать сводку молитв за сегодня)
+{"type": "busy", "until": "YYYY-MM-DD HH:MM" или null}  (пользователь занят: «я на встрече до 5», «не беспокой 2 часа» — пока занят, бот отвечает людям в его личке и потом шлёт сводку)
+{"type": "free"}  (пользователь освободился)
 
 Правила:
 - Формулируй задачу грамотно: начинай с глагола, конкретный измеримый результат, без воды. Сохраняй имена, названия, ссылки и цифры в точности как написал пользователь.
@@ -584,7 +593,7 @@ function welcome() {
     '«Сделал КП» — закрою. «Перенеси созвон на пятницу» — перенесу. Правки, которые ты делаешь прямо в Notion, я тоже вижу.\n' +
     `Утром в ${MORNING} пришлю план, вечером в ${EVENING} — разбор дня. О дедлайнах напомню за час и в момент дедлайна.\n\n` +
     '🕌 В время намаза напомню и буду повторять каждые 10 минут, пока не отметишь.\n\n' +
-    '🎤 Можно присылать голосовые и 📷 фото (скрины переписки, записи) — сделаю из них задачи.\n\n/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
+    '🔕 Занят? /busy 2ч — отвечу людям в твоей личке и потом пришлю сводку (нужен Telegram Business).\n🎤 Можно присылать голосовые и 📷 фото (скрины переписки, записи) — сделаю из них задачи.\n\n/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
 }
 // ---------- Фото и голосовые → текст (Gemini) ----------
 const MEDIA_MAX = 19 * 1024 * 1024; // лимит скачивания у Telegram-ботов — 20 МБ
@@ -679,7 +688,14 @@ async function onMessage(env, msg) {
     const out = await applyActions(env, [{ type: m[1] === 'done' ? 'done' : 'delete', id: Number(m[2]) }]);
     return send(env, chat, out.join('\n') || 'Такой открытой задачи нет.');
   }
-  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar.');
+  m = text.match(/^\/busy(?:@\w+)?\s*(.*)$/s);
+  if (m) {
+    if (/^ночь\s*(выкл|off|нет)/i.test(m[1])) { await setMeta(env, 'busy_night', false); return send(env, chat, 'Ночью больше не отвечаю за тебя. Включить: /busy ночь вкл'); }
+    if (/^ночь\s*(вкл|on|да)/i.test(m[1])) { await setMeta(env, 'busy_night', true); return send(env, chat, 'Ночью (23:00–08:00) отвечаю за тебя и утром присылаю сводку.'); }
+    return send(env, chat, await setBusy(env, parseBusyArg(m[1])));
+  }
+  if (/^\/free/.test(text)) { const r = await setFree(env, chat); return r ? send(env, chat, r) : null; }
+  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar, /busy, /free.');
 
   await tg(env, 'sendChatAction', { chat_id: chat, action: 'typing' });
   const hist = await getMeta(env, 'hist', []);
@@ -854,11 +870,118 @@ async function cronColumns(env) {
   }
 }
 
+// ---------- Режим «Занят»: Джефф отвечает в личке владельца через Telegram Business ----------
+const NIGHT_FROM = 23, NIGHT_TO = 8; // ночью тоже «занят»
+const BUSY_REPLY = 'Здравствуйте! Иззатбек сейчас занят и ответит чуть позже.\nAssalomu alaykum! Izzatbek hozir band, birozdan keyin javob beradi.';
+const URGENT_RE = /срочн|urgent|asap|tez\b|tezda|shoshilinch/i;
+const localToMs = (s) => Date.parse(s + ':00Z') - TZ_MIN * 60000;
+async function busyState(env, now = Date.now()) {
+  const b = await getMeta(env, 'busy', {});
+  if (b.on && (!b.until || b.until > now)) return { mode: 'manual', period: 'm' + b.since, until: b.until || null };
+  const night = await getMeta(env, 'busy_night', true);
+  const h = Number(nowLocal(now).slice(11, 13));
+  if (night && (h >= NIGHT_FROM || h < NIGHT_TO)) {
+    const start = h >= NIGHT_FROM ? today(now) : addDaysStr(today(now), -1);
+    return { mode: 'night', period: 'n' + start, until: null };
+  }
+  return null;
+}
+function parseBusyArg(arg, now = Date.now()) {
+  arg = String(arg || '').trim().toLowerCase();
+  if (!arg) return null;
+  let m = arg.match(/до\s*(\d{1,2})(?:[:.](\d{2}))?/);
+  if (m) {
+    let t = localToMs(today(now) + 'T' + String(Math.min(23, +m[1])).padStart(2, '0') + ':' + (m[2] || '00'));
+    if (t <= now) t += 864e5;
+    return t;
+  }
+  let ms = 0;
+  if ((m = arg.match(/(\d+(?:[.,]\d+)?)\s*(ч|h|час)/))) ms += parseFloat(m[1].replace(',', '.')) * 3600e3;
+  if ((m = arg.match(/(\d+)\s*(м|min|мин)/))) ms += +m[1] * 60e3;
+  if (!ms && (m = arg.match(/^(\d+(?:[.,]\d+)?)$/))) ms = parseFloat(m[1].replace(',', '.')) * 3600e3;
+  return ms ? now + ms : null;
+}
+const hm = (ms) => nowLocal(ms).slice(11, 16);
+async function setBusy(env, until) {
+  await setMeta(env, 'busy', { on: true, since: Date.now(), until: until || null });
+  const biz = await getMeta(env, 'biz', {});
+  return '🔕 Режим «Занят» включён' + (until ? ` до ${hm(until)}` : ' — выключить: /free') + '.\n' +
+    (biz.enabled ? 'Отвечу людям в личке, что ты занят, а потом пришлю сводку.' : 'Чтобы я отвечал людям в твоей личке, подключи меня: Настройки → Telegram Business → Чат-боты → @' + (biz.bot || 'jeff_aliev_bot') + '.');
+}
+async function setFree(env, chat) {
+  await setMeta(env, 'busy', { on: false });
+  const sent = await flushBizDigest(env, chat, true);
+  return sent ? '' : '🔔 Режим «Занят» выключен. Пока тебя не было, никто не писал.';
+}
+async function onBusinessConnection(env, bc) {
+  const cfg = await getMeta(env, 'cfg', {});
+  if (!cfg.owner || String(bc.user.id) !== cfg.owner) return; // отвечать можно только за владельца
+  const canReply = !!(bc.rights ? bc.rights.can_reply : bc.can_reply);
+  await setMeta(env, 'biz', { id: bc.id, enabled: !!bc.is_enabled, can_reply: canReply });
+  if (cfg.chat) await send(env, cfg.chat, bc.is_enabled
+    ? (canReply ? '🤝 Подключился к твоему Telegram. Когда ты занят (/busy) или ночью (23:00–08:00), отвечу людям в личке и потом пришлю сводку.'
+      : '🤝 Подключился, но без права отвечать. Включи «Отвечать на сообщения» в Настройки → Telegram Business → Чат-боты.')
+    : 'Отключился от твоего Telegram — в личке больше не отвечаю.');
+}
+async function onBusinessMessage(env, msg) {
+  const cfg = await getMeta(env, 'cfg', {});
+  const biz = await getMeta(env, 'biz', {});
+  if (!cfg.owner || !biz.enabled || msg.business_connection_id !== biz.id) return;
+  if (!msg.chat || msg.chat.type !== 'private') return;
+  const st = await busyState(env);
+  if (!msg.from || String(msg.from.id) === cfg.owner) { // ты сам написал в этом чате — дальше не встреваю
+    if (st) await env.DB.prepare('INSERT OR IGNORE INTO bizdone (chat, period) VALUES (?, ?)').bind(msg.chat.id, st.period).run();
+    return;
+  }
+  if (msg.from.is_bot || !st) return;
+  const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') || 'Без имени';
+  const text = (msg.text || msg.caption || '').trim() || (msg.voice ? '[голосовое]' : msg.photo ? '[фото]' : msg.sticker ? '[стикер]' : '[вложение]');
+  await env.DB.prepare('INSERT INTO bizq (chat, name, username, text, at) VALUES (?, ?, ?, ?, ?)')
+    .bind(msg.chat.id, name, msg.from.username || '', text.slice(0, 1500), nowLocal()).run();
+  const done = await env.DB.prepare('SELECT 1 FROM bizdone WHERE chat=? AND period=?').bind(msg.chat.id, st.period).first();
+  if (!done && biz.can_reply) {
+    const r = await tg(env, 'sendMessage', { business_connection_id: biz.id, chat_id: msg.chat.id, text: BUSY_REPLY });
+    if (r.ok) await env.DB.prepare('INSERT OR IGNORE INTO bizdone (chat, period) VALUES (?, ?)').bind(msg.chat.id, st.period).run();
+  }
+  if (URGENT_RE.test(text) && cfg.chat) {
+    await send(env, cfg.chat, `🔴 Срочное от <b>${esc(name)}</b>${msg.from.username ? ' @' + esc(msg.from.username) : ''}:\n${esc(text.slice(0, 500))}`);
+  }
+}
+async function flushBizDigest(env, chat, force = false) {
+  if (!force && (await busyState(env))) return false;
+  const { results } = await env.DB.prepare('SELECT * FROM bizq ORDER BY id').all();
+  if (!results || !results.length) return false;
+  const ids = results.map((r) => r.id);
+  const people = new Map();
+  for (const r of results) {
+    const p = people.get(r.chat) || { name: r.name, username: r.username, msgs: [] };
+    p.msgs.push(`[${r.at.slice(11, 16)}] ${r.text}`); people.set(r.chat, p);
+  }
+  const raw = [...people.values()].map((p) => `${p.name}${p.username ? ' (@' + p.username + ')' : ''}:\n` + p.msgs.join('\n')).join('\n\n');
+  let summary = '';
+  try {
+    summary = String(await llm(env, [
+      { role: 'system', content: 'Ты — Джефф, ассистент предпринимателя. Пока он был занят, ему написали в Telegram. Сделай короткую сводку по-русски: по каждому человеку одна-две строки — кто, чего хочет, что ответить и насколько срочно. В конце, если уместно, строка «Задачи:» со списком, что стоит сделать. Без markdown, без вступлений.' },
+      { role: 'user', content: raw.slice(0, 12000) }], false)).trim();
+  } catch (e) { console.log('biz digest llm', String(e)); }
+  const head = `📬 Пока ты был занят, написали: ${people.size} ${people.size === 1 ? 'человек' : people.size < 5 ? 'человека' : 'человек'}.\n\n`;
+  const body = esc(summary || raw);
+  await send(env, chat, (head + body).slice(0, 4000));
+  await env.DB.prepare(`DELETE FROM bizq WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).run();
+  await env.DB.prepare('DELETE FROM bizdone WHERE period NOT IN (?)').bind((await busyState(env) || {}).period || '-').run();
+  return true;
+}
+async function cronBusy(env, chat) {
+  const b = await getMeta(env, 'busy', {});
+  if (b.on && b.until && b.until <= Date.now()) await setMeta(env, 'busy', { on: false });
+  await flushBizDigest(env, chat);
+}
+
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
   if (!cfg.chat) return;
-  for (const job of [() => cronPrayers(env, cfg.chat), () => cronColumns(env), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
+  for (const job of [() => cronPrayers(env, cfg.chat), () => cronBusy(env, cfg.chat), () => cronColumns(env), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
     try { await job(); } catch (e) { console.log('cron job failed', String(e && e.stack || e)); }
   }
 }
@@ -877,11 +1000,12 @@ async function setup(env, origin) {
     out.keys = { TELEGRAM_TOKEN: kind(env.TELEGRAM_TOKEN), LLM_API_KEY: kind(env.LLM_API_KEY), NOTION_TOKEN: kind(env.NOTION_TOKEN) };
   }
   else out.bot = me.result.username;
-  out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false })).ok;
+  out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query', 'business_connection', 'business_message'], drop_pending_updates: false })).ok;
   out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'commands' } })).ok;
   out.commands = (await tg(env, 'setMyCommands', { commands: [
     { command: 'tasks', description: 'Открытые задачи' }, { command: 'notion', description: 'База задач в Notion' },
-    { command: 'namoz', description: 'Молитвы на сегодня' }, { command: 'istigfar', description: 'Истигфар за сегодня: /istigfar 300' }] })).ok;
+    { command: 'namoz', description: 'Молитвы на сегодня' }, { command: 'istigfar', description: 'Истигфар за сегодня: /istigfar 300' },
+    { command: 'busy', description: 'Я занят: /busy 2ч или /busy до 18:00' }, { command: 'free', description: 'Я свободен — сводка, кто писал' }] })).ok;
   try {
     const n = await ensureNotion(env);
     await notionSchema(env, n, true);
@@ -923,6 +1047,8 @@ export default {
           try {
             await ensureSchema(env);
             if (update.message) await onMessage(env, update.message);
+            else if (update.business_connection) await onBusinessConnection(env, update.business_connection);
+            else if (update.business_message) await onBusinessMessage(env, update.business_message);
             else if (update.callback_query) await onCallback(env, update.callback_query);
           } catch (e) {
             console.log('update failed', String(e && e.stack || e));
