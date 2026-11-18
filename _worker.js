@@ -73,6 +73,10 @@ const SCHEMA = [
   // режим «Занят»: входящие в личку владельца (Telegram Business) и в каких чатах уже ответили
   'CREATE TABLE IF NOT EXISTS bizq (id INTEGER PRIMARY KEY AUTOINCREMENT, chat INTEGER NOT NULL, name TEXT, username TEXT, text TEXT, at TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS bizdone (chat INTEGER NOT NULL, period TEXT NOT NULL, PRIMARY KEY (chat, period))',
+  // группы, где состоит Джефф, и их последние сообщения
+  'CREATE TABLE IF NOT EXISTS gchats (id INTEGER PRIMARY KEY, title TEXT, type TEXT, active INTEGER NOT NULL DEFAULT 1, updated TEXT)',
+  'CREATE TABLE IF NOT EXISTS gmsgs (id INTEGER PRIMARY KEY AUTOINCREMENT, chat INTEGER NOT NULL, name TEXT, text TEXT, at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS gmsgs_chat ON gmsgs (chat, id)',
 ];
 let schemaReady = false;
 async function ensureSchema(env) {
@@ -490,6 +494,10 @@ async function applyActions(env, actions) {
         const date = validDate(a.date) ? a.date : today();
         await markPrayer(env, date, a.key, a.done !== false);
         out.push(`${a.done === false ? '↩️ Снял отметку' : '✅ Отметил'}: ${prayerName(a.key)}`);
+      } else if (a.type === 'group_send') {
+        const r = await draftGroupMessage(env, a.group, a.text); if (r) out.push(esc(r));
+      } else if (a.type === 'group_read') {
+        out.push(esc(await groupDigest(env, a.group, a.limit)));
       } else if (a.type === 'busy') {
         const u = parseDt(a.until); out.push(esc(await setBusy(env, u ? localToMs(u) : null)));
       } else if (a.type === 'free') {
@@ -536,6 +544,8 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"type": "prayers"}  (показать сводку молитв за сегодня)
 {"type": "busy", "until": "YYYY-MM-DD HH:MM" или null}  (пользователь занят: «я на встрече до 5», «не беспокой 2 часа» — пока занят, бот отвечает людям в его личке и потом шлёт сводку)
 {"type": "free"}  (пользователь освободился)
+{"type": "group_send", "group": "название группы", "text": "готовый текст сообщения"}  (написать в Telegram-группу, где есть бот; бот покажет черновик с кнопкой «Отправить». Пиши текст от лица ассистента Джеффа или так, как попросил пользователь)
+{"type": "group_read", "group": "название группы" или null, "limit": 60}  (прочитать и пересказать, что писали в группе; null — все группы за сутки)
 
 Правила:
 - Формулируй задачу грамотно: начинай с глагола, конкретный измеримый результат, без воды. Сохраняй имена, названия, ссылки и цифры в точности как написал пользователь.
@@ -585,7 +595,9 @@ async function contextHeader(env) {
   } catch (e) {
     tasksText = '(список задач недоступен: Notion не ответил)';
   }
-  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nСтатусы задач в Notion: ${statuses}.\nОткрытые задачи:\n${tasksText}`;
+  let groupsText = '';
+  try { const gs = await activeGroups(env); groupsText = gs.length ? '\nГруппы, где есть бот: ' + gs.map((g) => '«' + g.title + '»').join(', ') + '.' : '\nБот пока не состоит ни в одной группе.'; } catch {}
+  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nСтатусы задач в Notion: ${statuses}.${groupsText}\nОткрытые задачи:\n${tasksText}`;
 }
 
 // ---------- Обработка сообщений ----------
@@ -643,6 +655,7 @@ async function mediaToText(env, m, caption) {
 class MediaError extends Error {}
 
 async function onMessage(env, msg) {
+  if (msg.chat && (msg.chat.type === 'group' || msg.chat.type === 'supergroup')) return onGroupMessage(env, msg);
   if (!msg.from || msg.chat.type !== 'private') return;
   const cfg = await getMeta(env, 'cfg', {});
   const uid = String(msg.from.id);
@@ -699,21 +712,117 @@ async function onMessage(env, msg) {
   if (/^\/free/.test(text)) { const r = await setFree(env, chat); return r ? send(env, chat, r) : null; }
   if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar, /busy, /free.');
 
-  await tg(env, 'sendChatAction', { chat_id: chat, action: 'typing' });
+  return chatWithJeff(env, chat, text, heard);
+}
+
+// Свободный текст → модель → действия. replyTo — чат для ответа (личка или группа).
+async function chatWithJeff(env, replyTo, text, heard = '', extra = '') {
+  await tg(env, 'sendChatAction', { chat_id: replyTo, action: 'typing' });
   const hist = await getMeta(env, 'hist', []);
   let data;
   try {
-    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + (await contextHeader(env)) }, ...hist, { role: 'user', content: text }]));
+    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + (await contextHeader(env)) + (extra ? '\n' + extra : '') }, ...hist, { role: 'user', content: text }]));
   } catch (e) {
     console.log('llm failed', String(e));
-    return send(env, chat, 'Не смог обработать — модель не ответила. Попробуй ещё раз.');
+    return send(env, replyTo, 'Не смог обработать — модель не ответила. Попробуй ещё раз.');
   }
   const blocks = await applyActions(env, data.actions);
   const reply = String(data.reply || '').trim();
   hist.push({ role: 'user', content: text }, { role: 'assistant', content: reply || 'Готово.' });
   await setMeta(env, 'hist', hist.slice(-12));
   const heardLine = heard ? '🎤 <i>' + esc(heard.length > 600 ? heard.slice(0, 600) + '…' : heard) + '</i>' : '';
-  return send(env, chat, [heardLine, ...blocks, reply ? esc(reply) : ''].filter(Boolean).join('\n\n') || 'Готово.');
+  const body = [heardLine, ...blocks, reply ? esc(reply) : ''].filter(Boolean).join('\n\n');
+  if (!body && (Array.isArray(data.actions) ? data.actions : []).some((a) => a && a.type === 'group_send')) return; // черновик уже показан
+  return send(env, replyTo, body || 'Готово.');
+}
+
+// ---------- Группы ----------
+const GROUP_KEEP = 300; // сколько последних сообщений хранить на группу
+async function botUsername(env) {
+  let u = await getMeta(env, 'bot_username', '');
+  if (!u) { const me = await tg(env, 'getMe', {}); if (me.ok) { u = me.result.username; await setMeta(env, 'bot_username', u); } }
+  return u;
+}
+async function upsertGroup(env, chat, active = 1) {
+  await env.DB.prepare('INSERT INTO gchats (id, title, type, active, updated) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, type=excluded.type, active=excluded.active, updated=excluded.updated')
+    .bind(chat.id, chat.title || 'Без названия', chat.type, active, nowLocal()).run();
+}
+async function activeGroups(env) {
+  return ((await env.DB.prepare('SELECT id, title FROM gchats WHERE active=1 ORDER BY updated DESC').all()).results) || [];
+}
+function findGroup(groups, q) {
+  q = String(q || '').toLowerCase().replace(/[«»"']/g, '').trim();
+  if (!q) return null;
+  const norm = (t) => String(t).toLowerCase();
+  return groups.find((g) => norm(g.title) === q) || groups.find((g) => norm(g.title).includes(q)) ||
+    groups.find((g) => q.split(/\s+/).filter((w) => w.length > 2).every((w) => norm(g.title).includes(w))) || null;
+}
+async function onGroupMessage(env, msg) {
+  await upsertGroup(env, msg.chat, 1);
+  const from = msg.from || {};
+  const name = msg.sender_chat ? msg.sender_chat.title : [from.first_name, from.last_name].filter(Boolean).join(' ') || from.username || '?';
+  const text = (msg.text || msg.caption || '').trim() || (msg.voice ? '[голосовое]' : msg.photo ? '[фото]' : msg.document ? '[файл]' : msg.sticker ? '[стикер]' : '');
+  if (text && !msg.new_chat_members && !msg.left_chat_member) {
+    await env.DB.prepare('INSERT INTO gmsgs (chat, name, text, at) VALUES (?, ?, ?, ?)').bind(msg.chat.id, name, text.slice(0, 2000), nowLocal()).run();
+    await env.DB.prepare('DELETE FROM gmsgs WHERE chat=? AND id <= (SELECT id FROM gmsgs WHERE chat=? ORDER BY id DESC LIMIT 1 OFFSET ?)').bind(msg.chat.id, msg.chat.id, GROUP_KEEP).run();
+  }
+  // в группе Джефф откликается только на владельца: упоминание, ответ на его сообщение или «Джефф, ...»
+  const cfg = await getMeta(env, 'cfg', {});
+  if (!cfg.owner || String(from.id) !== cfg.owner || !msg.text) return;
+  const u = await botUsername(env);
+  const mention = u && msg.text.toLowerCase().includes('@' + u.toLowerCase());
+  const replyToBot = msg.reply_to_message && msg.reply_to_message.from && u && msg.reply_to_message.from.username === u;
+  const byName = /^джефф[\s,:!]/i.test(msg.text);
+  if (!mention && !replyToBot && !byName) return;
+  const clean = msg.text.replace(new RegExp('@' + u, 'ig'), '').replace(/^джефф[\s,:!]+/i, '').trim();
+  if (!clean) return send(env, msg.chat.id, 'Я тут 👋');
+  const quoted = msg.reply_to_message && msg.reply_to_message.text ? `\nПользователь отвечает на сообщение: «${msg.reply_to_message.text.slice(0, 1000)}»` : '';
+  return chatWithJeff(env, msg.chat.id, clean, '', `Сейчас пользователь пишет тебе в группе «${msg.chat.title}». Ответ увидят все участники — пиши уместно.${quoted}`);
+}
+async function onMyChatMember(env, u) {
+  if (!u.chat || u.chat.type === 'private') return;
+  const st = u.new_chat_member && u.new_chat_member.status;
+  const active = ['member', 'administrator', 'creator', 'restricted'].includes(st) ? 1 : 0;
+  await upsertGroup(env, u.chat, active);
+  const cfg = await getMeta(env, 'cfg', {});
+  if (cfg.chat) await send(env, cfg.chat, active
+    ? `👥 Меня добавили в группу «${esc(u.chat.title || '')}». Теперь читаю её и могу писать туда по твоей команде.`
+    : `👋 Меня убрали из группы «${esc(u.chat.title || '')}».`);
+}
+async function groupDigest(env, groupQuery, limit) {
+  const groups = await activeGroups(env);
+  if (!groups.length) return 'Я пока не состою ни в одной группе. Добавь меня в группу (как обычного участника) — и смогу читать и писать там.';
+  let rows, title;
+  if (groupQuery) {
+    const g = findGroup(groups, groupQuery);
+    if (!g) return `Не нашёл группу «${groupQuery}». Я есть в: ${groups.map((x) => '«' + x.title + '»').join(', ')}.`;
+    title = g.title;
+    rows = ((await env.DB.prepare('SELECT * FROM gmsgs WHERE chat=? ORDER BY id DESC LIMIT ?').bind(g.id, Math.min(Number(limit) || 60, GROUP_KEEP)).all()).results || []).reverse();
+  } else {
+    const since = nowLocal(Date.now() - 24 * 3600e3);
+    rows = (await env.DB.prepare('SELECT m.*, g.title FROM gmsgs m JOIN gchats g ON g.id=m.chat WHERE g.active=1 AND m.at >= ? ORDER BY m.id DESC LIMIT 300').bind(since).all()).results || [];
+    rows.reverse();
+  }
+  if (!rows.length) return title ? `В «${title}» пока нет сообщений с тех пор, как я там.` : 'За сутки в группах ничего не писали.';
+  const raw = rows.map((r) => `${r.title ? '[' + r.title + '] ' : ''}${r.at.slice(5, 16).replace('T', ' ')} ${r.name}: ${r.text}`).join('\n');
+  try {
+    const sum = await llm(env, [
+      { role: 'system', content: 'Ты — Джефф, ассистент предпринимателя. Сделай короткую сводку переписки в Telegram-группе по-русски: о чём говорили, кто что просил или обещал, что требует его реакции. Если уместно — строка «Задачи:» в конце. Без markdown.' },
+      { role: 'user', content: raw.slice(-14000) }], false);
+    return `👥 ${title ? '«' + title + '»' : 'Группы за сутки'}:\n${String(sum).trim()}`;
+  } catch { return `👥 ${title ? '«' + title + '»' : 'Группы за сутки'} — последние сообщения:\n` + raw.slice(-3000); }
+}
+async function draftGroupMessage(env, groupQuery, text) {
+  const groups = await activeGroups(env);
+  const g = findGroup(groups, groupQuery);
+  if (!g) return groups.length ? `Не нашёл группу «${groupQuery}». Я есть в: ${groups.map((x) => '«' + x.title + '»').join(', ')}.` : 'Я пока не состою ни в одной группе — добавь меня туда.';
+  text = String(text || '').trim();
+  if (!text) return 'Что написать в группу?';
+  const id = Date.now().toString(36);
+  await setMeta(env, 'gdraft:' + id, { chat: g.id, title: g.title, text });
+  const cfg = await getMeta(env, 'cfg', {});
+  await send(env, cfg.chat, `✉️ Отправить в «${esc(g.title)}»?\n\n${esc(text)}`, { reply_markup: { inline_keyboard: [[{ text: '✅ Отправить', callback_data: 'g:' + id }, { text: '✖️ Отмена', callback_data: 'gx:' + id }]] } });
+  return '';
 }
 
 async function onCallback(env, cq) {
@@ -722,6 +831,20 @@ async function onCallback(env, cq) {
   const data = cq.data || '';
   const msg = cq.message;
   let note = '';
+  let g = data.match(/^(g|gx):(\w+)$/);
+  if (g) {
+    const d = await getMeta(env, 'gdraft:' + g[2], null);
+    if (!d) { await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id, text: 'Черновик устарел' }); return; }
+    await env.DB.prepare('DELETE FROM meta WHERE k=?').bind('gdraft:' + g[2]).run();
+    let result = '✖️ Отменено.';
+    if (g[1] === 'g') {
+      const r = await tg(env, 'sendMessage', { chat_id: d.chat, text: d.text });
+      result = r.ok ? `✅ Отправлено в «${esc(d.title)}»:\n\n${esc(d.text)}` : `Не получилось отправить в «${esc(d.title)}»: ${esc(r.description || 'ошибка')}`;
+    }
+    await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id });
+    if (msg) await tg(env, 'editMessageText', { chat_id: msg.chat.id, message_id: msg.message_id, text: result, parse_mode: 'HTML' });
+    return;
+  }
   let m = data.match(/^p:(\d{4}-\d{2}-\d{2}):(\w+)$/);
   if (m && (await markPrayer(env, m[1], m[2], true))) note = `${prayerName(m[2])} отмечен`;
   m = data.match(/^v:(\d{4}-\d{2}-\d{2})$/);
@@ -1013,8 +1136,8 @@ async function setup(env, origin) {
       : /^AIza[\w-]{20,}$/.test(v) ? 'похоже на ключ Gemini' : /^(ntn_|secret_)/.test(v) ? 'похоже на ключ Notion' : 'непонятный формат, длина ' + v.length;
     out.keys = { TELEGRAM_TOKEN: kind(env.TELEGRAM_TOKEN), LLM_API_KEY: kind(env.LLM_API_KEY), NOTION_TOKEN: kind(env.NOTION_TOKEN) };
   }
-  else out.bot = me.result.username;
-  out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query', 'business_connection', 'business_message'], drop_pending_updates: false })).ok;
+  else { out.bot = me.result.username; if (out.bot) await setMeta(env, 'bot_username', out.bot); }
+  out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query', 'business_connection', 'business_message', 'my_chat_member'], drop_pending_updates: false })).ok;
   out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'commands' } })).ok;
   out.commands = (await tg(env, 'setMyCommands', { commands: [
     { command: 'tasks', description: 'Открытые задачи' }, { command: 'notion', description: 'База задач в Notion' },
@@ -1063,6 +1186,7 @@ export default {
             if (update.message) await onMessage(env, update.message);
             else if (update.business_connection) await onBusinessConnection(env, update.business_connection);
             else if (update.business_message) await onBusinessMessage(env, update.business_message);
+            else if (update.my_chat_member) await onMyChatMember(env, update.my_chat_member);
             else if (update.callback_query) await onCallback(env, update.callback_query);
           } catch (e) {
             console.log('update failed', String(e && e.stack || e));
