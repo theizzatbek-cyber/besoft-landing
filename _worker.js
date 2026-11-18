@@ -1,10 +1,9 @@
-// Джефф — Telegram-бот на Cloudflare Workers: задачи, дедлайны, намазы, истигфар.
+// Джефф — Telegram-бот на Cloudflare: задачи в Notion, дедлайны, намазы, истигфар.
 // Работает внутри Cloudflare Pages (_worker.js) по адресам /jeff/*; остальной сайт отдаётся как есть.
-// Привязки: DB (D1). Секреты: TELEGRAM_TOKEN, LLM_API_KEY.
+// Привязки: DB (D1). Секреты: TELEGRAM_TOKEN, LLM_API_KEY, NOTION_TOKEN.
 // Расписание: отдельный маленький Worker раз в минуту вызывает /jeff/cron.
 
 const TZ_MIN = 300; // Asia/Tashkent, UTC+5, без перевода часов
-const APP_URL = 'https://besoft.uz/task/';
 const LLM_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const LLM_MODELS = ['gemini-3.5-flash', 'gemini-flash-lite-latest'];
 const LLM_TIMEOUT_MS = 12000;
@@ -19,19 +18,22 @@ const PRAYERS = [
   { key: 'shom', name: 'Шом' }, { key: 'xufton', name: 'Хуфтон' }, { key: 'vitr', name: 'Витр' },
 ];
 const VITR_AFTER_MIN = 20; // Витр напоминаем через 20 минут после Хуфтон
-const DEFAULT_COLUMNS = [
-  { id: 'new', name: 'Новые', done: false }, { id: 'work', name: 'В работе', done: false },
-  { id: 'review', name: 'На проверке', done: false }, { id: 'done', name: 'Готово', done: true },
-];
 const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-const ORIGINS = [/^https:\/\/(www\.)?besoft\.uz$/, /^https:\/\/([a-z0-9-]+\.)?besoft\.pages\.dev$/];
+
+// Notion: названия колонок базы. Если переименуешь колонку в Notion — поменяй и здесь.
+const NOTION_VERSION = '2025-09-03';
+const NOTION_DB_TITLE = 'Задачи Джеффа';
+const P = { title: 'Задача', status: 'Статус', project: 'Проект', deadline: 'Дедлайн', created: 'Поставлена', step: 'Следующий шаг' };
+const STATUS_OPTIONS = [
+  { name: 'Новые', color: 'blue' }, { name: 'В работе', color: 'yellow' },
+  { name: 'На проверке', color: 'purple' }, { name: 'Готово', color: 'green' },
+];
+const DONE_RE = /готов|выполн|сделан|закрыт|done/i;
 
 // ---------- Время ----------
 const pad = (n) => String(n).padStart(2, '0');
 function nowLocal(ts = Date.now()) { return new Date(ts + TZ_MIN * 60000).toISOString().slice(0, 16); } // YYYY-MM-DDTHH:MM
 function today(ts) { return nowLocal(ts).slice(0, 10); }
-function addDays(date, n) { const d = new Date(date + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-function localToTs(local) { return Date.parse(local + ':00Z') - TZ_MIN * 60000; }
 function addMin(hhmm, n) { const [h, m] = hhmm.split(':').map(Number); const t = Math.min(h * 60 + m + n, 23 * 60 + 59); return pad(Math.floor(t / 60)) + ':' + pad(t % 60); }
 function parseDt(v) {
   if (!v || typeof v !== 'string') return '';
@@ -42,18 +44,29 @@ function parseDt(v) {
   if (m && !isNaN(Date.parse(m[1] + 'T00:00:00Z'))) return m[1] + 'T18:00';
   return '';
 }
+const localToIso = (local) => local + ':00+05:00';
+function notionDateToLocal(s) { // дата без времени считается до 18:00
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s + 'T18:00';
+  const ts = Date.parse(s);
+  return isNaN(ts) ? '' : nowLocal(ts);
+}
 function human(local) {
   if (!local) return 'без дедлайна';
   const d = new Date(local + ':00Z');
   return `${WEEKDAYS[d.getUTCDay()]}, ${local.slice(8, 10)}.${local.slice(5, 7)}.${local.slice(0, 4)} ${local.slice(11, 16)}`;
 }
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escAttr = (s) => esc(s).replace(/"/g, '&quot;');
 
-// ---------- База ----------
+// ---------- База (D1) ----------
 const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)',
+  // старые задачи из D1 — переносятся в Notion при подключении и удаляются отсюда
   `CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, project TEXT, next_step TEXT,
     deadline TEXT, created TEXT NOT NULL, status TEXT NOT NULL, pos REAL NOT NULL DEFAULT 0, reminded INTEGER NOT NULL DEFAULT 0, done_at TEXT)`,
+  'CREATE TABLE IF NOT EXISTS nums (num INTEGER PRIMARY KEY AUTOINCREMENT, page TEXT NOT NULL UNIQUE)',
+  'CREATE TABLE IF NOT EXISTS nrem (page TEXT PRIMARY KEY, deadline TEXT NOT NULL, stage INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS days (date TEXT PRIMARY KEY, data TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS pings (date TEXT NOT NULL, key TEXT NOT NULL, last INTEGER NOT NULL, msg INTEGER, PRIMARY KEY (date, key))',
 ];
@@ -70,19 +83,6 @@ async function getMeta(env, k, fallback = null) {
 }
 async function setMeta(env, k, v) {
   await env.DB.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(k, JSON.stringify(v)).run();
-}
-async function getColumns(env) {
-  const c = await getMeta(env, 'columns');
-  return Array.isArray(c) && c.length ? c : DEFAULT_COLUMNS;
-}
-const doneIds = (cols) => cols.filter((c) => c.done).map((c) => c.id);
-async function allTasks(env) {
-  return (await env.DB.prepare('SELECT * FROM tasks ORDER BY pos, id').all()).results || [];
-}
-async function getTask(env, id) { return env.DB.prepare('SELECT * FROM tasks WHERE id=?').bind(Number(id)).first(); }
-async function nextPos(env) {
-  const r = await env.DB.prepare('SELECT MAX(pos) AS m FROM tasks').first();
-  return ((r && r.m) || 0) + 1;
 }
 async function getDay(env, date) {
   const r = await env.DB.prepare('SELECT data FROM days WHERE date=?').bind(date).first();
@@ -106,33 +106,238 @@ async function tg(env, method, body) {
     return j;
   } catch (e) { console.log('tg failed', method, String(e)); return { ok: false }; }
 }
-const send = (env, chat, text, extra) => tg(env, 'sendMessage', { chat_id: chat, text, parse_mode: 'HTML', ...(extra || {}) });
+const send = (env, chat, text, extra) => tg(env, 'sendMessage', { chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(extra || {}) });
 async function sha256hex(s) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 const webhookSecret = async (env) => (await sha256hex('webhook:' + env.TELEGRAM_TOKEN)).slice(0, 48);
-async function hmac(keyBytes, msg) {
-  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg)));
+
+// ---------- Notion ----------
+class NotionSetupError extends Error {}
+async function notion(env, method, path, body, retry = true) {
+  if (!env.NOTION_TOKEN) throw new NotionSetupError('Notion не подключён: нет ключа NOTION_TOKEN в настройках Cloudflare.');
+  const r = await fetch('https://api.notion.com/v1' + path, {
+    method,
+    headers: { Authorization: 'Bearer ' + env.NOTION_TOKEN, 'Notion-Version': NOTION_VERSION, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000),
+  });
+  if (r.status === 429 && retry) {
+    await new Promise((res) => setTimeout(res, Math.min(5, Number(r.headers.get('Retry-After')) || 1) * 1000));
+    return notion(env, method, path, body, false);
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const err = new Error(`Notion ${r.status}: ${j.message || 'ошибка'}`);
+    err.status = r.status;
+    if (r.status === 401) throw new NotionSetupError('Notion не принял ключ NOTION_TOKEN — проверь его в настройках Cloudflare.');
+    throw err;
+  }
+  return j;
 }
-// Проверка подписи Telegram Mini App: возвращает id пользователя или null
-async function verifyInitData(env, initData) {
+const plain = (arr) => (Array.isArray(arr) ? arr.map((t) => t.plain_text || (t.text && t.text.content) || '').join('') : '');
+const richText = (s) => [{ type: 'text', text: { content: String(s).slice(0, 1900) } }];
+
+// Подключение: находит страницу, к которой открыт доступ интеграции, и создаёт в ней базу задач
+async function ensureNotion(env) {
+  const saved = await getMeta(env, 'notion');
+  if (saved && saved.ds) return saved;
+  if (env.NOTION_DATA_SOURCE) {
+    const cfg = { ds: env.NOTION_DATA_SOURCE, url: env.NOTION_URL || '' };
+    await setMeta(env, 'notion', cfg);
+    return cfg;
+  }
+  if (!env.NOTION_TOKEN) throw new NotionSetupError('Notion не подключён: нет ключа NOTION_TOKEN в настройках Cloudflare.');
+  const found = await notion(env, 'POST', '/search', { filter: { property: 'object', value: 'page' }, page_size: 25 });
+  const parent = (found.results || []).find((p) => p.object === 'page' && !p.in_trash && !p.archived && p.parent &&
+    p.parent.type !== 'data_source_id' && p.parent.type !== 'database_id');
+  if (!parent) throw new NotionSetupError('Notion подключён, но Джеффу не открыта ни одна страница. В Notion открой страницу → ••• → «Подключения» → добавь «Джефф».');
+  const db = await notion(env, 'POST', '/databases', {
+    parent: { type: 'page_id', page_id: parent.id },
+    title: richText(NOTION_DB_TITLE),
+    icon: { type: 'emoji', emoji: '✅' },
+    initial_data_source: {
+      properties: {
+        [P.title]: { title: {} },
+        [P.status]: { select: { options: STATUS_OPTIONS } },
+        [P.project]: { select: { options: [{ name: 'Newton', color: 'purple' }, { name: 'Be Soft', color: 'green' }] } },
+        [P.deadline]: { date: {} },
+        [P.created]: { created_time: {} },
+        [P.step]: { rich_text: {} },
+      },
+    },
+  });
+  let ds = db.data_sources && db.data_sources[0] && db.data_sources[0].id;
+  if (!ds) {
+    const full = await notion(env, 'GET', '/databases/' + db.id);
+    ds = full.data_sources && full.data_sources[0] && full.data_sources[0].id;
+  }
+  if (!ds) throw new Error('Notion создал базу, но не вернул её источник данных.');
+  const cfg = { db: db.id, ds, url: db.url || '' };
+  await setMeta(env, 'notion', cfg);
+  await importOldTasks(env, cfg);
+  return cfg;
+}
+// Схема базы: какие статусы есть и какого типа колонка статуса (select или status)
+async function notionSchema(env, cfg, force = false) {
+  const cached = await getMeta(env, 'nschema');
+  if (!force && cached && cached.ds === cfg.ds && Date.now() - cached.at < 10 * 60e3) return cached;
+  const src = await notion(env, 'GET', '/data_sources/' + cfg.ds);
+  const sp = (src.properties || {})[P.status] || {};
+  const statusType = sp.type === 'status' ? 'status' : 'select';
+  const statuses = ((sp[statusType] || {}).options || []).map((o) => o.name).filter(Boolean);
+  const schema = { ds: cfg.ds, at: Date.now(), statusType, statuses: statuses.length ? statuses : STATUS_OPTIONS.map((o) => o.name) };
+  await setMeta(env, 'nschema', schema);
+  return schema;
+}
+const isDoneStatus = (name) => DONE_RE.test(name || '');
+const doneStatusOf = (schema) => schema.statuses.find(isDoneStatus) || 'Готово';
+const openStatusOf = (schema) => schema.statuses.find((s) => !isDoneStatus(s)) || 'Новые';
+function matchStatus(schema, name) {
+  if (!name) return null;
+  const n = String(name).toLowerCase().trim();
+  return schema.statuses.find((s) => s.toLowerCase() === n) || null;
+}
+const cleanProject = (p) => (PROJECTS.includes(p) ? p : PROJECTS.find((x) => x.toLowerCase() === String(p || '').toLowerCase().trim()) || '');
+
+// Короткие номера задач (#1, #2…) для общения в Telegram; страница Notion ↔ номер
+async function numbersFor(env, pageIds) {
+  const map = {};
+  for (let i = 0; i < pageIds.length; i += 50) {
+    const chunk = pageIds.slice(i, i + 50);
+    if (!chunk.length) continue;
+    const sel = () => env.DB.prepare(`SELECT num, page FROM nums WHERE page IN (${chunk.map(() => '?').join(',')})`).bind(...chunk).all();
+    for (const r of (await sel()).results || []) map[r.page] = r.num;
+    const missing = chunk.filter((id) => !map[id]);
+    if (!missing.length) continue;
+    await env.DB.batch(missing.map((id) => env.DB.prepare('INSERT OR IGNORE INTO nums (page) VALUES (?)').bind(id)));
+    for (const r of (await sel()).results || []) map[r.page] = r.num;
+  }
+  return map;
+}
+async function pageOfNum(env, num) {
+  const r = await env.DB.prepare('SELECT page FROM nums WHERE num=?').bind(Number(num)).first();
+  return r ? r.page : null;
+}
+function pageToTask(p, num) {
+  const pr = p.properties || {};
+  const st = pr[P.status] || {};
+  const dl = pr[P.deadline] && pr[P.deadline].date;
+  return {
+    id: num, page: p.id, url: p.url || '',
+    title: plain((pr[P.title] || {}).title) || 'Без названия',
+    status: (st.select && st.select.name) || (st.status && st.status.name) || '',
+    project: (pr[P.project] && pr[P.project].select && pr[P.project].select.name) || '',
+    deadline: notionDateToLocal(dl && dl.start),
+    created: p.created_time ? nowLocal(Date.parse(p.created_time)) : '',
+    next_step: plain((pr[P.step] || {}).rich_text),
+  };
+}
+async function queryPages(env, cfg, body) {
+  const out = [];
+  let cursor;
+  for (let i = 0; i < 3; i++) { // до 300 строк
+    const r = await notion(env, 'POST', `/data_sources/${cfg.ds}/query`, { ...body, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
+    out.push(...(r.results || []).filter((p) => p.object === 'page' && !p.in_trash && !p.archived));
+    if (!r.has_more) break;
+    cursor = r.next_cursor;
+  }
+  return out;
+}
+async function toTasks(env, pages) {
+  const nums = await numbersFor(env, pages.map((p) => p.id));
+  return pages.map((p) => pageToTask(p, nums[p.id]));
+}
+const byDeadline = (a, b) => (!a.deadline) - (!b.deadline) || String(a.deadline).localeCompare(String(b.deadline)) || a.id - b.id;
+async function openTasks(env, cfg, schema) {
+  const pages = await queryPages(env, cfg, {
+    filter: { property: P.status, [schema.statusType]: { does_not_equal: doneStatusOf(schema) } },
+    sorts: [{ property: P.deadline, direction: 'ascending' }],
+  });
+  return (await toTasks(env, pages)).filter((t) => !isDoneStatus(t.status)).sort(byDeadline);
+}
+function taskProps(f, schema) {
+  const props = {};
+  if (f.title) props[P.title] = { title: richText(f.title) };
+  if (f.status) props[P.status] = { [schema.statusType]: { name: f.status } };
+  if ('project' in f) props[P.project] = { select: f.project ? { name: f.project } : null };
+  if ('deadline' in f) props[P.deadline] = { date: f.deadline ? { start: localToIso(f.deadline) } : null };
+  if ('next_step' in f) props[P.step] = { rich_text: f.next_step ? richText(f.next_step) : [] };
+  return props;
+}
+async function createTask(env, cfg, schema, f) {
+  const page = await notion(env, 'POST', '/pages', {
+    parent: { type: 'data_source_id', data_source_id: cfg.ds },
+    properties: taskProps({ status: openStatusOf(schema), ...f }, schema),
+  });
+  return (await toTasks(env, [page]))[0];
+}
+async function updateTask(env, schema, pageId, f) {
+  const page = await notion(env, 'PATCH', '/pages/' + pageId, { properties: taskProps(f, schema) });
+  return (await toTasks(env, [page]))[0];
+}
+async function trashPage(env, pageId) {
+  try { await notion(env, 'PATCH', '/pages/' + pageId, { in_trash: true }); } catch (e) {
+    if (e.status !== 400) throw e;
+    await notion(env, 'PATCH', '/pages/' + pageId, { archived: true });
+  }
+}
+async function taskByNum(env, num) {
+  const pageId = await pageOfNum(env, num);
+  if (!pageId) return null;
   try {
-    const p = new URLSearchParams(initData);
-    const hash = p.get('hash');
-    if (!hash) return null;
-    p.delete('hash');
-    const check = [...p.entries()].map(([k, v]) => `${k}=${v}`).sort().join('\n');
-    const secret = await hmac(new TextEncoder().encode('WebAppData'), env.TELEGRAM_TOKEN);
-    const sig = [...(await hmac(secret, check))].map((x) => x.toString(16).padStart(2, '0')).join('');
-    if (sig.length !== hash.length) return null;
-    let diff = 0;
-    for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ hash.charCodeAt(i);
-    if (diff) return null;
-    if (Date.now() / 1000 - Number(p.get('auth_date') || 0) > 7 * 86400) return null;
-    return String(JSON.parse(p.get('user') || '{}').id || '') || null;
-  } catch { return null; }
+    const p = await notion(env, 'GET', '/pages/' + pageId);
+    if (p.in_trash || p.archived) return null;
+    return pageToTask(p, Number(num));
+  } catch (e) { if (e.status === 404) return null; throw e; }
+}
+// Перенос задач, которые лежали в D1 до подключения Notion
+async function importOldTasks(env, cfg) {
+  const rows = (await env.DB.prepare('SELECT * FROM tasks ORDER BY id').all()).results || [];
+  if (!rows.length) return 0;
+  const schema = await notionSchema(env, cfg, true);
+  let n = 0;
+  for (const t of rows) {
+    try {
+      const done = /done|готов/i.test(t.status || '');
+      await createTask(env, cfg, schema, {
+        title: t.title, project: cleanProject(t.project) || '', deadline: parseDt(t.deadline), next_step: t.next_step || '',
+        status: done ? doneStatusOf(schema) : openStatusOf(schema),
+      });
+      await env.DB.prepare('DELETE FROM tasks WHERE id=?').bind(t.id).run();
+      n++;
+    } catch (e) { console.log('import failed', t.id, String(e)); }
+  }
+  return n;
+}
+// Подготовка: всё, что нужно для работы с задачами; при ошибке подключения — понятный текст
+async function taskCtx(env) {
+  const cfg = await ensureNotion(env);
+  const schema = await notionSchema(env, cfg);
+  return { cfg, schema };
+}
+const setupHint = (e) => (e instanceof NotionSetupError ? '⚠️ ' + e.message : '⚠️ Notion сейчас не ответил, попробуй через минуту.');
+
+// ---------- Карточки ----------
+function taskCard(t, head = '✅ Задача') {
+  const lines = [`${head} #${t.id}`, `<b>${esc(t.title)}</b>`, `⏰ Дедлайн: ${human(t.deadline)}`];
+  if (t.project) lines.push(`📁 Проект: ${esc(t.project)}`);
+  if (t.status) lines.push(`📌 Статус: ${esc(t.status)}`);
+  if (t.next_step) lines.push(`👉 Следующий шаг: ${esc(t.next_step)}`);
+  if (t.created) lines.push(`🕒 Поставлена: ${human(t.created)}`);
+  if (t.url) lines.push(`<a href="${escAttr(t.url)}">Открыть в Notion</a>`);
+  return lines.join('\n');
+}
+function listText(tasks, url) {
+  const link = url ? `\n\n<a href="${escAttr(url)}">Все задачи в Notion</a>` : '';
+  if (!tasks.length) return 'Открытых задач нет.' + link;
+  const now = nowLocal();
+  return '📋 <b>Открытые задачи</b>\n' + tasks.map((t) =>
+    `#${t.id} ${esc(t.title)}${t.project ? ` [${esc(t.project)}]` : ''} — ${human(t.deadline)}${t.deadline && t.deadline < now ? ' 🔴 просрочено' : ''}`).join('\n') + link;
+}
+function tasksForPrompt(tasks) {
+  if (!tasks.length) return 'Открытых задач нет.';
+  return tasks.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${t.status || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${(t.created || '-').replace('T', ' ')} | следующий шаг: ${t.next_step || '-'}`).join('\n');
 }
 
 // ---------- Времена намаза ----------
@@ -178,12 +383,10 @@ async function monthTimes(env, ym) {
   await setMeta(env, 'times:' + ym, data);
   return data;
 }
-// Расписание дня: [{key, name, time, end}] в местном времени HH:MM
 async function daySchedule(env, date) {
   const m = await monthTimes(env, date.slice(0, 7));
   const t = m && m.days[date];
   if (!t) return null;
-  const vitr = addMin(t.xufton, VITR_AFTER_MIN);
   return {
     source: m.source, sunrise: t.quyosh,
     list: [
@@ -192,7 +395,7 @@ async function daySchedule(env, date) {
       { key: 'asr', name: 'Аср', time: t.asr, end: t.shom },
       { key: 'shom', name: 'Шом', time: t.shom, end: t.xufton },
       { key: 'xufton', name: 'Хуфтон', time: t.xufton, end: '23:59' },
-      { key: 'vitr', name: 'Витр', time: vitr, end: '23:59' },
+      { key: 'vitr', name: 'Витр', time: addMin(t.xufton, VITR_AFTER_MIN), end: '23:59' },
     ],
   };
 }
@@ -224,87 +427,58 @@ async function prayerStatus(env, date) {
   }
   lines.push('', `📿 Истигфар: <b>${day.istighfar}</b>`, `${day.vakia ? '✅' : '▫️'} Сура Аль-Вакиа`);
   if (!sch) lines.push('', 'Время намазов сейчас недоступно, попробую загрузить позже.');
+  else lines.push('', `Время: ${sch.source}`);
   const rows = [];
   for (let i = 0; i < kb.length; i += 3) rows.push(kb.slice(i, i + 3));
   rows.push([{ text: day.vakia ? '↩️ Аль-Вакиа не прочитана' : '✅ Аль-Вакиа прочитана', callback_data: `v:${date}` }]);
-  rows.push([{ text: 'Открыть трекер', web_app: { url: APP_URL } }]);
   return { text: lines.join('\n'), reply_markup: { inline_keyboard: rows } };
 }
 
-// ---------- Задачи ----------
-function taskCard(t, cols, head = '✅ Задача') {
-  const c = cols.find((x) => x.id === t.status);
-  const lines = [`${head} #${t.id}`, `<b>${esc(t.title)}</b>`, `⏰ Дедлайн: ${human(t.deadline)}`];
-  if (t.project) lines.push(`📁 Проект: ${esc(t.project)}`);
-  if (c) lines.push(`📌 Статус: ${esc(c.name)}`);
-  if (t.next_step) lines.push(`👉 Следующий шаг: ${esc(t.next_step)}`);
-  lines.push(`🕒 Поставлена: ${human(t.created)}`);
-  return lines.join('\n');
-}
-async function openTasks(env, cols) {
-  const done = doneIds(cols);
-  return (await allTasks(env)).filter((t) => !done.includes(t.status))
-    .sort((a, b) => (!a.deadline) - (!b.deadline) || String(a.deadline).localeCompare(String(b.deadline)) || a.id - b.id);
-}
-async function listText(env, cols) {
-  const rows = await openTasks(env, cols);
-  if (!rows.length) return 'Открытых задач нет.';
-  const now = nowLocal();
-  return '📋 <b>Открытые задачи</b>\n' + rows.map((t) =>
-    `#${t.id} ${esc(t.title)}${t.project ? ` [${esc(t.project)}]` : ''} — ${human(t.deadline)}${t.deadline && t.deadline < now ? ' 🔴 просрочено' : ''}`).join('\n');
-}
-async function tasksForPrompt(env, cols) {
-  const rows = await openTasks(env, cols);
-  if (!rows.length) return 'Открытых задач нет.';
-  return rows.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${(cols.find((c) => c.id === t.status) || {}).name || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${t.created.replace('T', ' ')} | следующий шаг: ${t.next_step || '-'}`).join('\n');
-}
-const cleanProject = (p) => (PROJECTS.includes(p) ? p : PROJECTS.find((x) => x.toLowerCase() === String(p || '').toLowerCase().trim()) || '');
-function colByName(cols, name) {
-  if (!name) return null;
-  const n = String(name).toLowerCase().trim();
-  return cols.find((c) => c.id === name) || cols.find((c) => c.name.toLowerCase() === n) || null;
-}
-
-async function applyActions(env, actions, cols) {
+// ---------- Действия ----------
+const TASK_ACTIONS = ['add', 'done', 'update', 'delete', 'list'];
+async function applyActions(env, actions) {
   const out = [];
-  const stamp = nowLocal();
-  const firstOpen = (cols.find((c) => !c.done) || cols[0]).id;
-  const firstDone = (cols.find((c) => c.done) || cols[cols.length - 1]).id;
+  let tc = null, tcError = null;
+  const ctx = async () => {
+    if (tc || tcError) return tc;
+    try { tc = await taskCtx(env); } catch (e) { tcError = e; console.log('notion ctx', String(e)); }
+    return tc;
+  };
   for (const a of Array.isArray(actions) ? actions : []) {
     if (!a || typeof a !== 'object') continue;
     try {
-      if (a.type === 'add' && a.title) {
-        const status = (colByName(cols, a.status) || {}).id || firstOpen;
-        const r = await env.DB.prepare('INSERT INTO tasks (title, project, next_step, deadline, created, status, pos) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .bind(String(a.title).trim().slice(0, 500), cleanProject(a.project), a.next_step ? String(a.next_step).slice(0, 300) : '', parseDt(a.deadline), stamp, status, await nextPos(env)).run();
-        out.push(taskCard(await getTask(env, r.meta.last_row_id), cols));
-      } else if (a.type === 'done') {
-        const t = await getTask(env, a.id);
-        if (t && !doneIds(cols).includes(t.status)) {
-          await env.DB.prepare('UPDATE tasks SET status=?, done_at=? WHERE id=?').bind(firstDone, stamp, t.id).run();
-          out.push(`🏁 Закрыта #${t.id}: <b>${esc(t.title)}</b>`);
-        }
-      } else if (a.type === 'update') {
-        const t = await getTask(env, a.id);
-        if (t) {
+      if (TASK_ACTIONS.includes(a.type)) {
+        if (!(await ctx())) continue;
+        const { cfg, schema } = tc;
+        if (a.type === 'add' && a.title) {
+          const t = await createTask(env, cfg, schema, {
+            title: String(a.title).trim().slice(0, 500), project: cleanProject(a.project), deadline: parseDt(a.deadline),
+            next_step: a.next_step ? String(a.next_step).slice(0, 300) : '', status: matchStatus(schema, a.status) || openStatusOf(schema),
+          });
+          out.push(taskCard(t));
+        } else if (a.type === 'done') {
+          const t = await taskByNum(env, a.id);
+          if (t && !isDoneStatus(t.status)) {
+            await updateTask(env, schema, t.page, { status: doneStatusOf(schema) });
+            out.push(`🏁 Закрыта #${t.id}: <b>${esc(t.title)}</b>`);
+          } else out.push(`Задачи #${a.id} нет среди открытых.`);
+        } else if (a.type === 'update') {
+          const t = await taskByNum(env, a.id);
+          if (!t) { out.push(`Задачи #${a.id} не нашёл.`); continue; }
           const f = {};
           if (a.title) f.title = String(a.title).trim().slice(0, 500);
           if (a.next_step) f.next_step = String(a.next_step).slice(0, 300);
           if (a.project) f.project = cleanProject(a.project);
-          if ('deadline' in a) { f.deadline = parseDt(a.deadline); f.reminded = 0; }
-          const c = colByName(cols, a.status);
-          if (c) { f.status = c.id; f.done_at = c.done ? stamp : null; }
-          const keys = Object.keys(f);
-          if (keys.length) {
-            await env.DB.prepare(`UPDATE tasks SET ${keys.map((k) => k + '=?').join(', ')} WHERE id=?`).bind(...keys.map((k) => f[k]), t.id).run();
-            out.push(taskCard(await getTask(env, t.id), cols, '✏️ Обновлена'));
-          }
+          if ('deadline' in a) f.deadline = parseDt(a.deadline);
+          const st = matchStatus(schema, a.status);
+          if (st) f.status = st;
+          if (Object.keys(f).length) out.push(taskCard(await updateTask(env, schema, t.page, f), '✏️ Обновлена'));
+        } else if (a.type === 'delete') {
+          const t = await taskByNum(env, a.id);
+          if (t) { await trashPage(env, t.page); out.push(`🗑 Удалена #${t.id}: ${esc(t.title)} (лежит в корзине Notion)`); }
+        } else if (a.type === 'list') {
+          out.push(listText(await openTasks(env, cfg, schema), cfg.url));
         }
-      } else if (a.type === 'delete') {
-        const t = await getTask(env, a.id);
-        if (t) { await env.DB.prepare('DELETE FROM tasks WHERE id=?').bind(t.id).run(); out.push(`🗑 Удалена #${t.id}: ${esc(t.title)}`); }
-      } else if (a.type === 'list') {
-        out.push(await listText(env, cols));
       } else if (a.type === 'prayer' && PRAYERS.some((p) => p.key === a.key)) {
         const date = validDate(a.date) ? a.date : today();
         await markPrayer(env, date, a.key, a.done !== false);
@@ -322,14 +496,18 @@ async function applyActions(env, actions, cols) {
       } else if (a.type === 'prayers') {
         out.push((await prayerStatus(env, today())).text);
       }
-    } catch (e) { console.log('action failed', JSON.stringify(a), String(e)); }
+    } catch (e) {
+      console.log('action failed', JSON.stringify(a), String(e));
+      if (TASK_ACTIONS.includes(a.type)) out.push(setupHint(e));
+    }
   }
+  if (tcError) out.unshift(setupHint(tcError));
   return out;
 }
 
 // ---------- LLM ----------
 const SYSTEM = `Ты — Джефф, личный ассистент и ментор предпринимателя. Он пишет тебе в Telegram как в обычный чат.
-Твоя работа: превращать его сообщения в чёткие задачи, вести список и помогать его закрывать. Ты также ведёшь его намазы, истигфар и чтение суры Аль-Вакиа.
+Твоя работа: превращать его сообщения в чёткие задачи, вести список в Notion и помогать его закрывать. Ты также ведёшь его намазы, истигфар и чтение суры Аль-Вакиа.
 
 Отвечай ТОЛЬКО JSON-объектом:
 {"reply": "текст ответа", "actions": [ ... ]}
@@ -337,7 +515,7 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 Виды действий:
 {"type": "add", "title": "...", "deadline": "YYYY-MM-DD HH:MM" или null, "project": "Newton" | "Be Soft" | null, "next_step": "..." или null}
 {"type": "done", "id": 12}
-{"type": "update", "id": 12, "title": "...", "deadline": "...", "project": "...", "next_step": "...", "status": "название колонки"}  (только изменяемые поля)
+{"type": "update", "id": 12, "title": "...", "deadline": "...", "project": "...", "next_step": "...", "status": "название статуса"}  (только изменяемые поля)
 {"type": "delete", "id": 12}
 {"type": "list"}
 {"type": "prayer", "key": "bomdod" | "peshin" | "asr" | "shom" | "xufton" | "vitr", "done": true}
@@ -346,13 +524,13 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"type": "prayers"}  (показать сводку молитв за сегодня)
 
 Правила:
-- Формулируй задачу грамотно: начинай с глагола, конкретный измеримый результат, без воды. Сохраняй имена, названия и цифры в точности как написал пользователь.
+- Формулируй задачу грамотно: начинай с глагола, конкретный измеримый результат, без воды. Сохраняй имена, названия, ссылки и цифры в точности как написал пользователь.
 - В одном сообщении может быть несколько задач — создай каждую отдельно.
 - Проект: только "Newton" или "Be Soft", если из сообщения это понятно; иначе null.
 - Дедлайн: если пользователь назвал срок («завтра», «до пятницы», «через 2 часа») — переведи в точную дату и время от текущего момента. Если день есть, а времени нет — ставь 18:00. Если срока нет совсем — предложи реалистичный сам и скажи об этом в reply.
 - Не ставь дедлайн в прошлое.
 - next_step — первое конкретное действие на 5–15 минут, если оно очевидно.
-- «сделал», «готово», «закрыл» → done по подходящей задаче из списка. «перенеси», «сдвинь» → update. Если непонятно, о какой задаче речь, — спроси, действий не делай.
+- «сделал», «готово», «закрыл» → done по подходящей задаче из списка. «перенеси», «сдвинь» → update. Номера задач бери только из списка ниже. Если непонятно, о какой задаче речь, — спроси, действий не делай.
 - «прочитал аср», «бомдод прочитан» → prayer. «истигфар 300» → istighfar с mode "set"; «ещё 100 истигфара» → mode "add". «прочитал Вакиа» → vakia.
 - Если это вопрос или разговор, а не задача, — просто ответь в reply, actions пустой.
 - reply: коротко, по делу, на «ты», по-русски. Не пересказывай карточки — бот покажет их сам. Ты ментор: если задач слишком много, дедлайны нереальные или пользователь распыляется — скажи прямо.`;
@@ -381,20 +559,29 @@ function extractJson(text) {
   if (m) { try { return JSON.parse(m[0]); } catch {} }
   return { reply: String(text || ''), actions: [] };
 }
-async function contextHeader(env, cols) {
+// Контекст для модели: время, статусы и открытые задачи из Notion
+async function contextHeader(env) {
   const n = nowLocal();
   const d = new Date(n + ':00Z');
-  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nКолонки канбана: ${cols.map((c) => c.name).join(', ')}.\nОткрытые задачи:\n${await tasksForPrompt(env, cols)}`;
+  let tasksText, statuses = STATUS_OPTIONS.map((o) => o.name).join(', ');
+  try {
+    const { cfg, schema } = await taskCtx(env);
+    statuses = schema.statuses.join(', ');
+    tasksText = tasksForPrompt(await openTasks(env, cfg, schema));
+  } catch (e) {
+    tasksText = '(список задач недоступен: Notion не ответил)';
+  }
+  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nСтатусы задач в Notion: ${statuses}.\nОткрытые задачи:\n${tasksText}`;
 }
 
 // ---------- Обработка сообщений ----------
 function welcome() {
-  return 'Привет, я Джефф.\n\nПиши задачи как в обычный чат — я сформулирую, поставлю дедлайн и добавлю в трекер.\n' +
+  return 'Привет, я Джефф.\n\nПиши задачи как в обычный чат — я сформулирую, поставлю дедлайн и добавлю в Notion.\n' +
     'Например: «завтра до обеда отправить КП клиенту и созвониться с Азизом в четверг».\n\n' +
-    '«Сделал КП» — закрою. «Перенеси созвон на пятницу» — перенесу.\n' +
-    `Утром в ${MORNING} пришлю план, вечером в ${EVENING} — разбор дня.\n\n` +
+    '«Сделал КП» — закрою. «Перенеси созвон на пятницу» — перенесу. Правки, которые ты делаешь прямо в Notion, я тоже вижу.\n' +
+    `Утром в ${MORNING} пришлю план, вечером в ${EVENING} — разбор дня. О дедлайнах напомню за час и в момент дедлайна.\n\n` +
     '🕌 В время намаза напомню и буду повторять каждые 10 минут, пока не отметишь.\n\n' +
-    '/tasks — задачи, /namoz — молитвы, /istigfar 300 — истигфар за сегодня,\n/app — трекер, /site — ссылка для браузера.';
+    '/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
 }
 async function onMessage(env, msg) {
   if (!msg.from || msg.chat.type !== 'private') return;
@@ -404,44 +591,45 @@ async function onMessage(env, msg) {
   if (!cfg.owner) {
     if (!/^\/start/.test(text)) return;
     cfg.owner = uid; cfg.chat = msg.chat.id;
-    cfg.webKey = (await sha256hex(crypto.randomUUID() + ':' + uid)).slice(0, 40);
     await setMeta(env, 'cfg', cfg);
   }
   if (uid !== cfg.owner) return;
   if (cfg.chat !== msg.chat.id) { cfg.chat = msg.chat.id; await setMeta(env, 'cfg', cfg); }
   if (!text) return;
   const chat = msg.chat.id;
-  const cols = await getColumns(env);
-  const appKb = { inline_keyboard: [[{ text: 'Открыть трекер', web_app: { url: APP_URL } }]] };
 
-  if (/^\/start/.test(text)) return send(env, chat, welcome(), { reply_markup: appKb });
-  if (/^\/tasks/.test(text)) return send(env, chat, await listText(env, cols), { reply_markup: appKb });
-  if (/^\/app/.test(text)) return send(env, chat, 'Трекер задач и молитв:', { reply_markup: appKb });
-  if (/^\/site/.test(text)) return send(env, chat, `Ссылка для обычного браузера (никому не пересылай — по ней открываются твои задачи):\n${APP_URL}#k=${cfg.webKey}`, { disable_web_page_preview: true });
+  if (/^\/start/.test(text)) return send(env, chat, welcome());
+  if (/^\/(tasks|notion)/.test(text)) {
+    try {
+      const { cfg: n, schema } = await taskCtx(env);
+      if (/^\/notion/.test(text)) return send(env, chat, n.url ? `<a href="${escAttr(n.url)}">${NOTION_DB_TITLE}</a> — база задач в Notion.` : 'База задач подключена, но ссылку Notion не вернул.');
+      return send(env, chat, listText(await openTasks(env, n, schema), n.url));
+    } catch (e) { console.log('tasks cmd', String(e)); return send(env, chat, setupHint(e)); }
+  }
   if (/^\/namoz/.test(text)) { const s = await prayerStatus(env, today()); return send(env, chat, s.text, { reply_markup: s.reply_markup }); }
   let m = text.match(/^\/istigfar(?:@\w+)?\s*(\+)?\s*(\d+)?/);
   if (m) {
     if (!m[2]) { const d = await getDay(env, today()); return send(env, chat, `📿 Истигфар сегодня: <b>${d.istighfar}</b>\nЗаписать: /istigfar 300, добавить: /istigfar +100`); }
-    return send(env, chat, (await applyActions(env, [{ type: 'istighfar', value: Number(m[2]), mode: m[1] ? 'add' : 'set' }], cols)).join('\n'));
+    return send(env, chat, (await applyActions(env, [{ type: 'istighfar', value: Number(m[2]), mode: m[1] ? 'add' : 'set' }])).join('\n'));
   }
   m = text.match(/^\/(done|del)(?:@\w+)?\s*#?(\d+)?/);
   if (m) {
     if (!m[2]) return send(env, chat, 'Укажи номер задачи, например: /done 3');
-    const out = await applyActions(env, [{ type: m[1] === 'done' ? 'done' : 'delete', id: Number(m[2]) }], cols);
+    const out = await applyActions(env, [{ type: m[1] === 'done' ? 'done' : 'delete', id: Number(m[2]) }]);
     return send(env, chat, out.join('\n') || 'Такой открытой задачи нет.');
   }
-  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /namoz, /istigfar, /app, /site.');
+  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar.');
 
   await tg(env, 'sendChatAction', { chat_id: chat, action: 'typing' });
   const hist = await getMeta(env, 'hist', []);
   let data;
   try {
-    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + (await contextHeader(env, cols)) }, ...hist, { role: 'user', content: text }]));
+    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + (await contextHeader(env)) }, ...hist, { role: 'user', content: text }]));
   } catch (e) {
     console.log('llm failed', String(e));
     return send(env, chat, 'Не смог обработать — модель не ответила. Попробуй ещё раз.');
   }
-  const blocks = await applyActions(env, data.actions, cols);
+  const blocks = await applyActions(env, data.actions);
   const reply = String(data.reply || '').trim();
   hist.push({ role: 'user', content: text }, { role: 'assistant', content: reply || 'Готово.' });
   await setMeta(env, 'hist', hist.slice(-12));
@@ -506,20 +694,42 @@ async function cronPrayers(env, chat) {
     }
   }
 }
-async function cronDeadlines(env, chat, cols) {
+// Дедлайны читаются из Notion каждую минуту — правки в Notion учитываются сразу
+async function cronDeadlines(env, chat) {
+  let tc;
+  try { tc = await taskCtx(env); } catch (e) { if (!(e instanceof NotionSetupError)) console.log('deadlines', String(e)); return; }
+  const { cfg, schema } = tc;
   const now = nowLocal();
   const soon = nowLocal(Date.now() + REMIND_BEFORE_MIN * 60000);
-  for (const t of await openTasks(env, cols)) {
-    if (!t.deadline) continue;
+  const pages = await queryPages(env, cfg, {
+    filter: { and: [
+      { property: P.deadline, date: { on_or_before: localToIso(soon) } },
+      { property: P.status, [schema.statusType]: { does_not_equal: doneStatusOf(schema) } },
+    ] },
+  });
+  const tasks = (await toTasks(env, pages)).filter((t) => t.deadline && t.deadline <= soon && !isDoneStatus(t.status));
+  for (const t of tasks) {
+    const rec = await env.DB.prepare('SELECT deadline, stage FROM nrem WHERE page=?').bind(t.page).first();
+    const stageNow = rec && rec.deadline === t.deadline ? rec.stage : 0; // перенесли дедлайн — напоминаем заново
     let text, stage;
-    if (t.deadline <= now && t.reminded < 2) { text = `🔴 Дедлайн прошёл: #${t.id} <b>${esc(t.title)}</b>\nСделал или переносим?`; stage = 2; }
-    else if (t.deadline > now && t.deadline <= soon && t.reminded < 1) { text = `⏰ Скоро дедлайн (${human(t.deadline)}): #${t.id} <b>${esc(t.title)}</b>`; stage = 1; }
+    const link = t.url ? `\n<a href="${escAttr(t.url)}">Открыть в Notion</a>` : '';
+    if (t.deadline <= now && stageNow < 2) { text = `🔴 Дедлайн прошёл: #${t.id} <b>${esc(t.title)}</b>\nСделал или переносим?${link}`; stage = 2; }
+    else if (t.deadline > now && stageNow < 1) { text = `⏰ Скоро дедлайн (${human(t.deadline)}): #${t.id} <b>${esc(t.title)}</b>${link}`; stage = 1; }
     else continue;
     await send(env, chat, text);
-    await env.DB.prepare('UPDATE tasks SET reminded=? WHERE id=?').bind(stage, t.id).run();
+    await env.DB.prepare('INSERT INTO nrem (page, deadline, stage) VALUES (?, ?, ?) ON CONFLICT(page) DO UPDATE SET deadline=excluded.deadline, stage=excluded.stage')
+      .bind(t.page, t.deadline, stage).run();
   }
 }
-async function cronDigest(env, chat, cols) {
+async function doneToday(env) {
+  try {
+    const { cfg, schema } = await taskCtx(env);
+    const start = localToIso(today() + 'T00:00');
+    const pages = await queryPages(env, cfg, { filter: { timestamp: 'last_edited_time', last_edited_time: { on_or_after: start } } });
+    return (await toTasks(env, pages)).filter((t) => isDoneStatus(t.status)).map((t) => t.title);
+  } catch { return []; }
+}
+async function cronDigest(env, chat) {
   const date = today(), hm = nowLocal().slice(11, 16);
   const sent = await getMeta(env, 'digest', {});
   let mode = null;
@@ -532,7 +742,7 @@ async function cronDigest(env, chat, cols) {
   if (mode === 'morning') {
     ask = 'Утро. Составь план на день: выбери не больше 3 главных задач на сегодня и объясни почему, отдельно назови просроченные. Если задач нет — спроси, что сегодня главное.';
   } else {
-    const done = (await allTasks(env)).filter((t) => (t.done_at || '').startsWith(date)).map((t) => t.title).join('; ') || 'ничего';
+    const done = (await doneToday(env)).join('; ') || 'ничего';
     const d = await getDay(env, date);
     const missed = PRAYERS.filter((p) => !d.prayers[p.key] && p.key !== 'xufton' && p.key !== 'vitr').map((p) => p.name).join(', ') || 'нет';
     ask = `Вечер. Закрыто сегодня: ${done}. Неотмеченные намазы за день: ${missed}. Истигфар: ${d.istighfar}. Аль-Вакиа: ${d.vakia ? 'прочитана' : 'не отмечена'}. ` +
@@ -541,139 +751,35 @@ async function cronDigest(env, chat, cols) {
   let text;
   try {
     text = await llm(env, [
-      { role: 'system', content: 'Ты — Джефф, ментор предпринимателя. Пиши коротко, прямо, на «ты», по-русски, обычным текстом без разметки. Ссылайся на задачи по номерам.\n\n' + (await contextHeader(env, cols)) },
+      { role: 'system', content: 'Ты — Джефф, ментор предпринимателя. Пиши коротко, прямо, на «ты», по-русски, обычным текстом без разметки. Ссылайся на задачи по номерам.\n\n' + (await contextHeader(env)) },
       { role: 'user', content: ask }], false);
   } catch { text = null; }
-  if (text) await tg(env, 'sendMessage', { chat_id: chat, text }); else await send(env, chat, await listText(env, cols));
+  if (text) await tg(env, 'sendMessage', { chat_id: chat, text });
 }
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
   if (!cfg.chat) return;
-  const cols = await getColumns(env);
-  for (const job of [() => cronPrayers(env, cfg.chat), () => cronDeadlines(env, cfg.chat, cols), () => cronDigest(env, cfg.chat, cols)]) {
+  for (const job of [() => cronPrayers(env, cfg.chat), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
     try { await job(); } catch (e) { console.log('cron job failed', String(e && e.stack || e)); }
   }
 }
 
-// ---------- API для трекера ----------
-function cors(req) {
-  const o = req.headers.get('Origin') || '';
-  const h = { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, X-Jeff-Auth', 'Access-Control-Max-Age': '86400', Vary: 'Origin' };
-  if (ORIGINS.some((re) => re.test(o))) h['Access-Control-Allow-Origin'] = o;
-  return h;
-}
-const json = (req, data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors(req) } });
-async function authorized(env, req) {
-  const cfg = await getMeta(env, 'cfg', {});
-  if (!cfg.owner) return false;
-  const a = req.headers.get('X-Jeff-Auth') || '';
-  if (a.startsWith('tma ')) return (await verifyInitData(env, a.slice(4))) === cfg.owner;
-  if (a.startsWith('key ') && cfg.webKey) {
-    const k = a.slice(4);
-    if (k.length !== cfg.webKey.length) return false;
-    let diff = 0;
-    for (let i = 0; i < k.length; i++) diff |= k.charCodeAt(i) ^ cfg.webKey.charCodeAt(i);
-    return diff === 0;
-  }
-  return false;
-}
-async function apiState(env, date) {
-  const cols = await getColumns(env);
-  const tasks = (await allTasks(env)).map((t) => ({ id: t.id, title: t.title, project: t.project || '', next_step: t.next_step || '', deadline: t.deadline || '', created: t.created, status: cols.some((c) => c.id === t.status) ? t.status : cols[0].id }));
-  const sch = await daySchedule(env, date);
-  const day = await getDay(env, date);
-  const from = addDays(date, -6);
-  const rows = (await env.DB.prepare('SELECT date, data FROM days WHERE date>=? AND date<=?').bind(from, date).all()).results || [];
-  const byDate = {};
-  for (const r of rows) { try { byDate[r.date] = JSON.parse(r.data); } catch {} }
-  const week = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = addDays(date, -i), x = byDate[d] || {};
-    week.push({ date: d, prayers: Object.keys(x.prayers || {}), istighfar: Number(x.istighfar) || 0, vakia: !!x.vakia });
-  }
-  return {
-    now: nowLocal(), columns: cols, tasks, projects: PROJECTS,
-    prayers: { date, source: sch ? sch.source : null, sunrise: sch ? sch.sunrise : null, list: PRAYERS.map((p) => { const s = sch && sch.list.find((x) => x.key === p.key); return { key: p.key, name: p.name, time: s ? s.time : null, end: s ? s.end : null, done: day.prayers[p.key] || false }; }), istighfar: day.istighfar, vakia: day.vakia, week },
-  };
-}
-async function apiOp(env, op) {
-  const cols = await getColumns(env);
-  const stamp = nowLocal();
-  const colId = (id) => (cols.some((c) => c.id === id) ? id : cols[0].id);
-  switch (op.type) {
-    case 'task.save': {
-      const title = String(op.title || '').trim().slice(0, 500);
-      if (!title) return { error: 'Пустая задача' };
-      const status = colId(op.status);
-      const doneAt = cols.find((c) => c.id === status).done ? stamp : null;
-      if (op.id) {
-        const t = await getTask(env, op.id);
-        if (!t) return { error: 'Задача не найдена' };
-        const deadline = parseDt(op.deadline);
-        await env.DB.prepare('UPDATE tasks SET title=?, project=?, deadline=?, created=?, status=?, done_at=?, reminded=? WHERE id=?')
-          .bind(title, cleanProject(op.project), deadline, parseDt(op.created) || t.created, status, doneAt, deadline === (t.deadline || '') ? t.reminded : 0, t.id).run();
-      } else {
-        await env.DB.prepare('INSERT INTO tasks (title, project, next_step, deadline, created, status, pos, done_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .bind(title, cleanProject(op.project), '', parseDt(op.deadline), parseDt(op.created) || stamp, status, await nextPos(env), doneAt).run();
-      }
-      return {};
-    }
-    case 'task.delete': await env.DB.prepare('DELETE FROM tasks WHERE id=?').bind(Number(op.id)).run(); return {};
-    case 'task.move': {
-      const t = await getTask(env, op.id);
-      if (!t) return { error: 'Задача не найдена' };
-      const status = colId(op.status);
-      let pos;
-      const before = op.beforeId ? await getTask(env, op.beforeId) : null;
-      if (before) {
-        const prev = await env.DB.prepare('SELECT MAX(pos) AS m FROM tasks WHERE pos<? AND id!=?').bind(before.pos, t.id).first();
-        pos = ((prev && prev.m != null ? prev.m : before.pos - 1) + before.pos) / 2;
-      } else pos = await nextPos(env);
-      const done = cols.find((c) => c.id === status).done;
-      await env.DB.prepare('UPDATE tasks SET status=?, pos=?, done_at=? WHERE id=?').bind(status, pos, done ? (t.done_at || stamp) : null, t.id).run();
-      return {};
-    }
-    case 'columns.set': {
-      if (!Array.isArray(op.columns) || !op.columns.length || op.columns.length > 30) return { error: 'Нужна хотя бы одна колонка' };
-      const next = [], seen = new Set();
-      for (const c of op.columns) {
-        const id = String(c.id || '').slice(0, 40), name = String(c.name || '').trim().slice(0, 60);
-        if (!id || !name || seen.has(id)) continue;
-        seen.add(id); next.push({ id, name, done: !!c.done });
-      }
-      if (!next.length) return { error: 'Нужна хотя бы одна колонка' };
-      await setMeta(env, 'columns', next);
-      // задачи из удалённых колонок переезжают в указанную или первую
-      const fallback = seen.has(op.moveTo) ? op.moveTo : next[0].id;
-      for (const c of cols) if (!seen.has(c.id)) await env.DB.prepare('UPDATE tasks SET status=? WHERE status=?').bind(fallback, c.id).run();
-      return {};
-    }
-    case 'prayer.set': return (await markPrayer(env, op.date, op.key, !!op.done)) ? {} : { error: 'Неверные данные' };
-    case 'istighfar.set': {
-      if (!validDate(op.date) || !isFinite(Number(op.value))) return { error: 'Неверные данные' };
-      const d = await getDay(env, op.date);
-      d.istighfar = Math.max(0, Math.min(1000000, Math.round(Number(op.value))));
-      await saveDay(env, op.date, d); return {};
-    }
-    case 'vakia.set': {
-      if (!validDate(op.date)) return { error: 'Неверные данные' };
-      const d = await getDay(env, op.date);
-      d.vakia = !!op.done; await saveDay(env, op.date, d); return {};
-    }
-    default: return { error: 'Неизвестная операция' };
-  }
-}
-
+// ---------- Настройка ----------
+const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 async function setup(env, origin) {
   await ensureSchema(env);
   const out = {};
   out.webhook = (await tg(env, 'setWebhook', { url: origin + '/tg', secret_token: await webhookSecret(env), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false })).ok;
-  out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'web_app', text: 'Трекер', web_app: { url: APP_URL } } })).ok;
+  out.menu = (await tg(env, 'setChatMenuButton', { menu_button: { type: 'commands' } })).ok;
   out.commands = (await tg(env, 'setMyCommands', { commands: [
-    { command: 'tasks', description: 'Открытые задачи' }, { command: 'namoz', description: 'Молитвы на сегодня' },
-    { command: 'istigfar', description: 'Истигфар за сегодня: /istigfar 300' }, { command: 'app', description: 'Открыть трекер' },
-    { command: 'site', description: 'Ссылка на трекер для браузера' }] })).ok;
+    { command: 'tasks', description: 'Открытые задачи' }, { command: 'notion', description: 'База задач в Notion' },
+    { command: 'namoz', description: 'Молитвы на сегодня' }, { command: 'istigfar', description: 'Истигфар за сегодня: /istigfar 300' }] })).ok;
+  try {
+    const n = await ensureNotion(env);
+    await notionSchema(env, n, true);
+    out.notion = true; out.notionUrl = n.url || null;
+  } catch (e) { out.notion = false; out.notionError = e.message; }
   return out;
 }
 
@@ -686,7 +792,6 @@ export default {
     const path = url.pathname.slice(5) || '/';
     if (path !== '/' && (!env.TELEGRAM_TOKEN || !env.DB)) return new Response('Джефф не настроен: нет ключей или базы.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     try {
-      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
       if (path === '/tg' && req.method === 'POST') {
         if (req.headers.get('X-Telegram-Bot-Api-Secret-Token') !== (await webhookSecret(env))) return new Response('forbidden', { status: 403 });
         const update = await req.json();
@@ -699,7 +804,7 @@ export default {
         })());
         return new Response('ok');
       }
-      if (path === '/setup') return json(req, await setup(env, url.origin + '/jeff'));
+      if (path === '/setup') return json(await setup(env, url.origin + '/jeff'));
       if (path === '/cron') { // тик расписания; не чаще раза в 45 секунд, кто бы ни вызвал
         await ensureSchema(env);
         const last = await getMeta(env, 'cron_at', 0);
@@ -708,23 +813,10 @@ export default {
         ctx.waitUntil(runCron(env));
         return new Response('ok');
       }
-      if (path.startsWith('/api/')) {
-        await ensureSchema(env);
-        if (!(await authorized(env, req))) return json(req, { error: 'unauthorized' }, 401);
-        const date = validDate(url.searchParams.get('day')) ? url.searchParams.get('day') : today();
-        if (path === '/api/state' && req.method === 'GET') return json(req, await apiState(env, date));
-        if (path === '/api/op' && req.method === 'POST') {
-          const op = await req.json();
-          const res = await apiOp(env, op || {});
-          if (res.error) return json(req, res, 400);
-          return json(req, await apiState(env, date));
-        }
-        return json(req, { error: 'not found' }, 404);
-      }
       return new Response('Джефф на связи.', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     } catch (e) {
       console.log('fetch failed', String(e && e.stack || e));
-      return json(req, { error: 'server error' }, 500);
+      return json({ error: 'server error' }, 500);
     }
   },
   async scheduled(event, env, ctx) { ctx.waitUntil(runCron(env)); },
