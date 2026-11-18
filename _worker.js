@@ -581,21 +581,80 @@ function welcome() {
     '«Сделал КП» — закрою. «Перенеси созвон на пятницу» — перенесу. Правки, которые ты делаешь прямо в Notion, я тоже вижу.\n' +
     `Утром в ${MORNING} пришлю план, вечером в ${EVENING} — разбор дня. О дедлайнах напомню за час и в момент дедлайна.\n\n` +
     '🕌 В время намаза напомню и буду повторять каждые 10 минут, пока не отметишь.\n\n' +
-    '/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
+    '🎤 Можно присылать голосовые и 📷 фото (скрины переписки, записи) — сделаю из них задачи.\n\n/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
 }
+// ---------- Фото и голосовые → текст (Gemini) ----------
+const MEDIA_MAX = 19 * 1024 * 1024; // лимит скачивания у Telegram-ботов — 20 МБ
+function pickMedia(msg) {
+  if (msg.voice) return { kind: 'audio', file: msg.voice, mime: msg.voice.mime_type || 'audio/ogg' };
+  if (msg.audio) return { kind: 'audio', file: msg.audio, mime: msg.audio.mime_type || 'audio/mpeg' };
+  if (msg.video_note) return { kind: 'audio', file: msg.video_note, mime: 'video/mp4' };
+  if (msg.photo && msg.photo.length) return { kind: 'image', file: msg.photo[msg.photo.length - 1], mime: 'image/jpeg' };
+  const d = msg.document;
+  if (d && /^(image|audio)\//.test(d.mime_type || '')) return { kind: d.mime_type.startsWith('image') ? 'image' : 'audio', file: d, mime: d.mime_type };
+  return null;
+}
+function toBase64(buf) {
+  const b = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+async function mediaToText(env, m, caption) {
+  if (m.file.file_size && m.file.file_size > MEDIA_MAX) throw new MediaError('Файл больше 20 МБ — Telegram не даёт ботам скачивать такие.');
+  const f = await tg(env, 'getFile', { file_id: m.file.file_id });
+  if (!f.ok || !f.result.file_path) throw new MediaError('Telegram не отдал файл.');
+  const r = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_TOKEN}/${f.result.file_path}`);
+  if (!r.ok) throw new MediaError('Не смог скачать файл из Telegram.');
+  const data = toBase64(await r.arrayBuffer());
+  const prompt = m.kind === 'audio'
+    ? 'Это голосовое сообщение. Расшифруй его дословно, на том языке, на котором говорят (обычно русский; узбекский оставь узбекским). Исправь только очевидные ошибки распознавания. Верни только текст расшифровки, без пояснений. Если речи нет — верни пустую строку.'
+    : 'Это фото, присланное в чат ассистента по задачам. Выпиши весь видимый текст (переписка, записи, списки) и коротко опиши, что на фото. Особенно отметь задачи, даты, время, имена, суммы, ссылки. Пиши по-русски, без вступлений.'
+      + (caption ? '\nПодпись пользователя к фото: ' + caption : '');
+  let last = new MediaError('Модель не смогла разобрать файл.');
+  for (const model of LLM_MODELS) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', headers: { 'x-goog-api-key': env.LLM_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: m.mime, data } }] }], generationConfig: { temperature: 0.1 } }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!resp.ok) { console.log('media llm', model, resp.status, (await resp.text()).slice(0, 200)); continue; }
+      const j = await resp.json();
+      const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+      return parts.map((p) => p.text || '').join('').trim();
+    } catch (e) { console.log('media llm', model, String(e)); last = e instanceof MediaError ? e : last; }
+  }
+  throw last;
+}
+class MediaError extends Error {}
+
 async function onMessage(env, msg) {
   if (!msg.from || msg.chat.type !== 'private') return;
   const cfg = await getMeta(env, 'cfg', {});
   const uid = String(msg.from.id);
-  const text = (msg.text || '').trim();
   if (!cfg.owner) {
     cfg.owner = uid; cfg.chat = msg.chat.id;
     await setMeta(env, 'cfg', cfg);
   }
   if (uid !== cfg.owner) return;
   if (cfg.chat !== msg.chat.id) { cfg.chat = msg.chat.id; await setMeta(env, 'cfg', cfg); }
-  if (!text) return;
   const chat = msg.chat.id;
+  let text = (msg.text || '').trim();
+  let heard = '';
+  if (!text) {
+    const media = pickMedia(msg);
+    if (!media) return;
+    await tg(env, 'sendChatAction', { chat_id: chat, action: 'typing' });
+    const caption = (msg.caption || '').trim();
+    let got;
+    try { got = await mediaToText(env, media, caption); } catch (e) {
+      console.log('media failed', String(e));
+      return send(env, chat, e instanceof MediaError ? e.message : 'Не смог разобрать файл — попробуй ещё раз.');
+    }
+    if (!got) return send(env, chat, media.kind === 'audio' ? 'Не расслышал слов в голосовом — попробуй ещё раз.' : 'Ничего не смог разобрать на фото.');
+    if (media.kind === 'audio') { heard = got; text = got + (caption ? '\n' + caption : ''); }
+    else text = (caption ? caption + '\n\n' : '') + '[Пользователь прислал фото. Что на нём:]\n' + got;
+  }
 
   if (/^\/start/.test(text)) return send(env, chat, welcome());
   if (/^\/(tasks|notion)/.test(text)) {
@@ -632,7 +691,8 @@ async function onMessage(env, msg) {
   const reply = String(data.reply || '').trim();
   hist.push({ role: 'user', content: text }, { role: 'assistant', content: reply || 'Готово.' });
   await setMeta(env, 'hist', hist.slice(-12));
-  return send(env, chat, [...blocks, reply ? esc(reply) : ''].filter(Boolean).join('\n\n') || 'Готово.');
+  const heardLine = heard ? '🎤 <i>' + esc(heard.length > 600 ? heard.slice(0, 600) + '…' : heard) + '</i>' : '';
+  return send(env, chat, [heardLine, ...blocks, reply ? esc(reply) : ''].filter(Boolean).join('\n\n') || 'Готово.');
 }
 
 async function onCallback(env, cq) {
