@@ -799,6 +799,8 @@ function cleanEnv(env) {
   for (const k of ['TELEGRAM_TOKEN', 'LLM_API_KEY', 'NOTION_TOKEN']) {
     if (typeof env[k] !== 'string') continue;
     let v = env[k].trim().replace(/^[A-Z_]+\s*=\s*/, '').trim().replace(/^["'`]+|["'`]+$/g, '').trim();
+    v = v.replace(/[\u200B-\u200F\u2060\uFEFF\u00AD]/g, '');
+    if (k === 'TELEGRAM_TOKEN') { const m = v.match(/\d{6,}:[A-Za-z0-9_-]{30,}/); if (m) v = m[0]; }
     v = v.split(/\s+/)[0] || '';
     out[k] = v;
   }
