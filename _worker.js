@@ -589,7 +589,6 @@ async function onMessage(env, msg) {
   const uid = String(msg.from.id);
   const text = (msg.text || '').trim();
   if (!cfg.owner) {
-    if (!/^\/start/.test(text)) return;
     cfg.owner = uid; cfg.chat = msg.chat.id;
     await setMeta(env, 'cfg', cfg);
   }
@@ -826,9 +825,21 @@ export default {
             await ensureSchema(env);
             if (update.message) await onMessage(env, update.message);
             else if (update.callback_query) await onCallback(env, update.callback_query);
-          } catch (e) { console.log('update failed', String(e && e.stack || e)); }
+          } catch (e) {
+            console.log('update failed', String(e && e.stack || e));
+            try { await setMeta(env, 'last_error', { at: nowLocal(), error: String(e && e.message || e).slice(0, 300) }); } catch (_) {}
+          }
         })());
         return new Response('ok');
+      }
+      if (path === '/status') {
+        await ensureSchema(env);
+        const w = await tg(env, 'getWebhookInfo', {});
+        const cfg = await getMeta(env, 'cfg', {});
+        const r = w.result || {};
+        return json({ webhookUrl: r.url || null, pending: r.pending_update_count, telegramLastError: r.last_error_message || null,
+          telegramLastErrorAt: r.last_error_date ? new Date(r.last_error_date * 1000).toISOString() : null,
+          ownerSet: !!cfg.owner, lastError: await getMeta(env, 'last_error', null), now: nowLocal() });
       }
       if (path === '/setup') return json(await setup(env, url.origin + '/jeff'));
       if (path === '/cron') { // тик расписания; не чаще раза в 45 секунд, кто бы ни вызвал
