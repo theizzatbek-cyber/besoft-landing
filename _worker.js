@@ -357,7 +357,6 @@ function taskCard(t, head = '✅ Задача') {
   const lines = [`${head} #${t.id}`, `<b>${esc(t.title)}</b>`, `⏰ Дедлайн: ${human(t.deadline)}`];
   if (t.project) lines.push(`📁 Проект: ${esc(t.project)}`);
   if (t.status) lines.push(`📌 Статус: ${esc(t.status)}`);
-  if (t.next_step) lines.push(`👉 Следующий шаг: ${esc(t.next_step)}`);
   if (t.planned || t.spent) lines.push(`⏱ Время: ${fmtMin(t.spent || 0)} из ${t.planned ? fmtMin(t.planned) : '—'}`);
   if (t.created) lines.push(`🕒 Поставлена: ${human(t.created)}`);
   if (t.url) lines.push(`<a href="${escAttr(t.url)}">Открыть в Notion</a>`);
@@ -401,7 +400,6 @@ function listText(tasks, url) {
     if (t.planned || t.spent) meta.push(`⏱ ${fmtMin(t.spent || 0)}${t.planned ? '/' + fmtMin(t.planned) : ''}`);
     let out = `<b>#${t.id}</b> ${esc(t.title)}`;
     if (meta.length) out += '\n' + meta.join('  ·  ');
-    if (t.next_step) out += `\n👉 ${esc(t.next_step)}`;
     return out;
   };
   const over = by.over.items.length;
@@ -424,7 +422,7 @@ function listText(tasks, url) {
 }
 function tasksForPrompt(tasks) {
   if (!tasks.length) return 'Открытых задач нет.';
-  return tasks.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${t.status || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${(t.created || '-').replace('T', ' ')} | следующий шаг: ${t.next_step || '-'} | время: план ${t.planned ?? '-'} мин, потрачено ${t.spent ?? 0} мин`).join('\n');
+  return tasks.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${t.status || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${(t.created || '-').replace('T', ' ')} | время: план ${t.planned ?? '-'} мин, потрачено ${t.spent ?? 0} мин`).join('\n');
 }
 
 // ---------- Времена намаза ----------
@@ -541,7 +539,6 @@ async function applyActions(env, actions) {
         if (a.type === 'add' && a.title) {
           const t = await createTask(env, cfg, schema, {
             title: String(a.title).trim().slice(0, 500), project: cleanProject(a.project), deadline: parseDt(a.deadline),
-            next_step: a.next_step ? String(a.next_step).slice(0, 300) : '',
             status: matchStatus(schema, a.status) || autoColumn(schema, parseDt(a.deadline)) || openStatusOf(schema),
           });
           out.push(taskCard(t));
@@ -556,7 +553,6 @@ async function applyActions(env, actions) {
           if (!t) { out.push(`Задачи #${a.id} не нашёл.`); continue; }
           const f = {};
           if (a.title) f.title = String(a.title).trim().slice(0, 500);
-          if (a.next_step) f.next_step = String(a.next_step).slice(0, 300);
           if (a.project) f.project = cleanProject(a.project);
           if ('deadline' in a) f.deadline = parseDt(a.deadline);
           const st = matchStatus(schema, a.status);
@@ -618,9 +614,9 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"reply": "текст ответа", "actions": [ ... ]}
 
 Виды действий:
-{"type": "add", "title": "...", "deadline": "YYYY-MM-DD HH:MM" или null, "project": "Newton" | "Be Soft" | null, "next_step": "..." или null}
+{"type": "add", "title": "...", "deadline": "YYYY-MM-DD HH:MM" или null, "project": "Newton" | "Be Soft" | null}
 {"type": "done", "id": 12}
-{"type": "update", "id": 12, "title": "...", "deadline": "...", "project": "...", "next_step": "...", "status": "название статуса"}  (только изменяемые поля)
+{"type": "update", "id": 12, "title": "...", "deadline": "...", "project": "...", "status": "название статуса"}  (только изменяемые поля)
 Канбан в Notion: колонки «Список» (когда-нибудь), «Задачи на неделю», «Сегодня», «Завтра», «Готово». Колонку по дедлайну бот ставит сам (сегодня/просрочено → Сегодня, завтра → Завтра, до воскресенья → Задачи на неделю, позже или без срока → Список) и каждое утро двигает задачи ближе. Поэтому "status" указывай, только если пользователь явно назвал колонку («закинь в сегодня», «на неделю», «в список»).
 {"type": "delete", "id": 12}
 {"type": "list"}
@@ -642,16 +638,28 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 - Проект: только "Newton" или "Be Soft", если из сообщения это понятно; иначе null.
 - Дедлайн: если пользователь назвал срок («завтра», «до пятницы», «через 2 часа») — переведи в точную дату и время от текущего момента. Если день есть, а времени нет — ставь 18:00. Если срока нет совсем — предложи реалистичный сам и скажи об этом в reply.
 - Не ставь дедлайн в прошлое.
-- next_step — первое конкретное действие на 5–15 минут, если оно очевидно.
+- Не предлагай «следующий шаг» и не советуй, с чего начать, — только если пользователь сам спросит.
 - «сделал», «готово», «закрыл» → done по подходящей задаче из списка. «перенеси», «сдвинь» → update. Номера задач бери только из списка ниже. Если непонятно, о какой задаче речь, — спроси, действий не делай.
 - «прочитал аср», «бомдод прочитан» → prayer. «истигфар 300» → istighfar с mode "set"; «ещё 100 истигфара» → mode "add". «прочитал Вакиа» → vakia.
 - Если это вопрос или разговор, а не задача, — просто ответь в reply, actions пустой.
 - reply: коротко, по делу, на «ты», по-русски. Если перечисляешь несколько пунктов — каждый с новой строки, между смысловыми блоками пустая строка; никаких сплошных простыней текста. Не пересказывай карточки — бот покажет их сам. Ты ментор: если задач слишком много, дедлайны нереальные или пользователь распыляется — скажи прямо.`;
 
 const noReasoningFlag = new Set();
+// Модель упёрлась в лимит (429) — не дёргаем её 30 минут, сразу идём к следующей
+const COOL_MS = 30 * 60e3;
+async function modelOrder(env) {
+  const cool = await getMeta(env, 'llm_cool', {});
+  const ready = LLM_MODELS.filter((m) => !(cool[m] > Date.now()));
+  return ready.length ? ready : LLM_MODELS;
+}
+async function coolModel(env, model) {
+  const cool = await getMeta(env, 'llm_cool', {});
+  cool[model] = Date.now() + COOL_MS;
+  await setMeta(env, 'llm_cool', cool);
+}
 async function llm(env, messages, jsonMode = true) {
   let last = new Error('LLM недоступна');
-  for (const model of LLM_MODELS) {
+  for (const model of await modelOrder(env)) {
     try {
       const body = { model, messages, temperature: 0.3 };
       if (jsonMode) body.response_format = { type: 'json_object' };
@@ -666,7 +674,7 @@ async function llm(env, messages, jsonMode = true) {
         if (/reasoning/i.test(t)) { noReasoningFlag.add(model); delete body.reasoning_effort; r = await call(); }
         else r = new Response(t, { status: 400 });
       }
-      if (!r.ok) { last = new Error('LLM ' + r.status); if (r.status !== 404 && r.status !== 429 && r.status < 500) throw last; continue; }
+      if (!r.ok) { last = new Error('LLM ' + r.status); if (r.status === 429) await coolModel(env, model); if (r.status !== 404 && r.status !== 429 && r.status < 500) throw last; continue; }
       const j = await r.json();
       const text = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
       if (text) return text;
@@ -736,14 +744,14 @@ async function mediaToText(env, m, caption) {
     : 'Это фото, присланное в чат ассистента по задачам. Выпиши весь видимый текст (переписка, записи, списки) и коротко опиши, что на фото. Особенно отметь задачи, даты, время, имена, суммы, ссылки. Пиши по-русски, без вступлений.'
       + (caption ? '\nПодпись пользователя к фото: ' + caption : '');
   let last = new MediaError('Модель не смогла разобрать файл.');
-  for (const model of LLM_MODELS) {
+  for (const model of await modelOrder(env)) {
     try {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST', headers: { 'x-goog-api-key': env.LLM_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: m.mime, data } }] }], generationConfig: { temperature: 0.1 } }),
         signal: AbortSignal.timeout(60000),
       });
-      if (!resp.ok) { console.log('media llm', model, resp.status, (await resp.text()).slice(0, 200)); continue; }
+      if (!resp.ok) { if (resp.status === 429) await coolModel(env, model); console.log('media llm', model, resp.status, (await resp.text()).slice(0, 200)); continue; }
       const j = await resp.json();
       const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
       return parts.map((p) => p.text || '').join('').trim();
@@ -1362,6 +1370,13 @@ async function healthCheck(env) {
   return out;
 }
 
+async function cronTick(env, ctx) {
+  const last = await getMeta(env, 'cron_at', 0);
+  if (Date.now() - last < 45000) return false;
+  await setMeta(env, 'cron_at', Date.now());
+  ctx.waitUntil(runCron(env));
+  return true;
+}
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
@@ -1429,6 +1444,7 @@ export default {
       if (path === '/tg' && req.method === 'POST') {
         if (req.headers.get('X-Telegram-Bot-Api-Secret-Token') !== (await webhookSecret(env))) return new Response('forbidden', { status: 403 });
         const update = await req.json();
+        if (!env.NO_WEBHOOK_TICK) ctx.waitUntil(ensureSchema(env).then(() => cronTick(env, ctx)).catch(() => {})); // страховка, если внешний будильник молчит
         ctx.waitUntil((async () => {
           try {
             await ensureSchema(env);
@@ -1457,11 +1473,7 @@ export default {
       if (path === '/setup') return json(await setup(env, url.origin + '/jeff'));
       if (path === '/cron') { // тик расписания; не чаще раза в 45 секунд, кто бы ни вызвал
         await ensureSchema(env);
-        const last = await getMeta(env, 'cron_at', 0);
-        if (Date.now() - last < 45000) return new Response('skip');
-        await setMeta(env, 'cron_at', Date.now());
-        ctx.waitUntil(runCron(env));
-        return new Response('ok');
+        return new Response((await cronTick(env, ctx)) ? 'ok' : 'skip');
       }
       return new Response('Джефф на связи.', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     } catch (e) {
