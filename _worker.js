@@ -1326,8 +1326,20 @@ async function healthCheck(env) {
     return { statuses: schema.statuses, openTasks: tasks.length, url: cfg.url };
   });
   await t('gemini', async () => {
-    const r = await llm(env, [{ role: 'user', content: 'Ответь одним словом: ок' }], false);
-    return { reply: String(r).trim().slice(0, 20) };
+    const models = {};
+    await Promise.all(LLM_MODELS.flatMap((model) => ['low', null].map(async (effort) => {
+      const s = Date.now();
+      try {
+        const body = { model, messages: [{ role: 'user', content: 'Ответь одним словом: ок' }], temperature: 0.3 };
+        if (effort) body.reasoning_effort = effort;
+        const r = await fetch(LLM_BASE + '/chat/completions', { method: 'POST', headers: { Authorization: 'Bearer ' + env.LLM_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+        const txt = await r.text();
+        models[model + (effort ? ' [low]' : ' [default]')] = { status: r.status, ms: Date.now() - s, note: r.ok ? '' : txt.slice(0, 160) };
+      } catch (e) { models[model + (effort ? ' [low]' : ' [default]')] = { status: 0, ms: Date.now() - s, note: String(e).slice(0, 120) }; }
+    })));
+    if (!Object.values(models).some((m) => m.status === 200)) throw new Error('ни одна модель не ответила: ' + JSON.stringify(models));
+    return { models };
   });
   await t('prayers', async () => {
     const sch = await daySchedule(env, today());
