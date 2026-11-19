@@ -816,6 +816,13 @@ async function onMessage(env, msg) {
     if (/^ночь\s*(вкл|on|да)/i.test(m[1])) { await setMeta(env, 'busy_night', true); return send(env, chat, 'Ночью (23:00–08:00) отвечаю за тебя и утром присылаю сводку.'); }
     return send(env, chat, await setBusy(env, parseBusyArg(m[1])));
   }
+  m = text.match(/^\/biz(?:@\w+)?\s*(on|off|вкл|выкл)?/i);
+  if (m) {
+    if (!m[1]) return send(env, chat, (await bizFrozen(env)) ? '🧊 Автоответы в личке заморожены. Включить: /biz on' : '✅ Автоответы в личке включены. Заморозить: /biz off');
+    const on = /on|вкл/i.test(m[1]);
+    await setMeta(env, 'biz_frozen', !on);
+    return send(env, chat, on ? '✅ Автоответы в личке включены: когда ты занят или ночью, отвечаю «занят» и потом шлю сводку.' : '🧊 Автоответы в личке заморожены. Никому не отвечаю и ничего не собираю. Включить: /biz on');
+  }
   m = text.match(/^\/go(?:@\w+)?\s*#?(\d+)?\s*(\d+)?/);
   if (m) {
     if (!m[1]) return send(env, chat, 'Укажи номер задачи: /go 5 или /go 5 40 (минут).');
@@ -1186,7 +1193,10 @@ async function onBusinessConnection(env, bc) {
       : '🤝 Подключился, но без права отвечать. Включи «Отвечать на сообщения» в Настройки → Telegram Business → Чат-боты.')
     : 'Отключился от твоего Telegram — в личке больше не отвечаю.');
 }
+// Заморозка автоответов в личке: по умолчанию заморожено, включить — /biz on
+const bizFrozen = async (env) => (await getMeta(env, 'biz_frozen', true)) !== false;
 async function onBusinessMessage(env, msg) {
+  if (await bizFrozen(env)) return;
   const cfg = await getMeta(env, 'cfg', {});
   const biz = await getMeta(env, 'biz', {});
   if (!cfg.owner || !biz.enabled || msg.business_connection_id !== biz.id) return;
@@ -1211,6 +1221,7 @@ async function onBusinessMessage(env, msg) {
   }
 }
 async function flushBizDigest(env, chat, force = false) {
+  if (await bizFrozen(env)) return false;
   if (!force && (await busyState(env))) return false;
   const { results } = await env.DB.prepare('SELECT * FROM bizq ORDER BY id').all();
   if (!results || !results.length) return false;
@@ -1358,6 +1369,7 @@ async function healthCheck(env) {
   await t('business', async () => {
     const b = await getMeta(env, 'biz', {});
     if (!b.id) throw new Error('Telegram Business не подключён');
+    if (await bizFrozen(env)) return { frozen: true, enabled: !!b.enabled };
     const st = await busyState(env);
     return { enabled: !!b.enabled, canReply: !!b.can_reply, busyNow: st ? st.mode : false, nightMode: await getMeta(env, 'busy_night', true),
       queued: (await env.DB.prepare('SELECT COUNT(*) AS n FROM bizq').first()).n };
