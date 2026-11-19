@@ -1295,6 +1295,61 @@ async function timerContext(env) {
   return `Сейчас идёт таймер: #${t.num} «${t.title}», прошло ${spent} мин из ${t.budget}.`;
 }
 
+// ---------- Самопроверка: живьём дёргает каждую часть ----------
+async function healthCheck(env) {
+  await ensureSchema(env);
+  const out = {}, t = async (name, fn) => {
+    const s = Date.now();
+    try { out[name] = { ok: true, ...(await fn()), ms: Date.now() - s }; } catch (e) { out[name] = { ok: false, error: String(e && e.message || e).slice(0, 200), ms: Date.now() - s }; }
+  };
+  await t('telegram', async () => {
+    const [me, w] = await Promise.all([tg(env, 'getMe', {}), tg(env, 'getWebhookInfo', {})]);
+    if (!me.ok) throw new Error(me.description || 'getMe failed');
+    const r = w.result || {};
+    if (!r.url) throw new Error('вебхук не установлен');
+    return { bot: me.result.username, webhook: r.url, pending: r.pending_update_count, lastError: r.last_error_message || null,
+      updates: r.allowed_updates || [] };
+  });
+  await t('cron', async () => {
+    const last = await getMeta(env, 'cron_at', 0);
+    const ago = Math.round((Date.now() - last) / 1000);
+    if (!last || ago > 180) throw new Error(`расписание не тикало ${last ? ago + ' с' : 'ни разу'}`);
+    return { lastTickSecAgo: ago };
+  });
+  await t('notion', async () => {
+    const { cfg, schema } = await taskCtx(env);
+    const src = await notion(env, 'GET', '/data_sources/' + cfg.ds);
+    const cols = Object.keys(src.properties || {});
+    const need = Object.values(P).filter((k) => !cols.includes(k));
+    if (need.length) throw new Error('нет колонок: ' + need.join(', '));
+    const tasks = await openTasks(env, cfg, schema);
+    return { statuses: schema.statuses, openTasks: tasks.length, url: cfg.url };
+  });
+  await t('gemini', async () => {
+    const r = await llm(env, [{ role: 'user', content: 'Ответь одним словом: ок' }], false);
+    return { reply: String(r).trim().slice(0, 20) };
+  });
+  await t('prayers', async () => {
+    const sch = await daySchedule(env, today());
+    if (!sch) throw new Error('время намазов не загрузилось');
+    return { source: sch.source, sunrise: sch.sunrise, times: Object.fromEntries(sch.list.map((p) => [p.name, p.time])) };
+  });
+  await t('owner', async () => { const c = await getMeta(env, 'cfg', {}); if (!c.owner) throw new Error('хозяин не назначен'); return { chatSet: !!c.chat }; });
+  await t('business', async () => {
+    const b = await getMeta(env, 'biz', {});
+    if (!b.id) throw new Error('Telegram Business не подключён');
+    const st = await busyState(env);
+    return { enabled: !!b.enabled, canReply: !!b.can_reply, busyNow: st ? st.mode : false, nightMode: await getMeta(env, 'busy_night', true),
+      queued: (await env.DB.prepare('SELECT COUNT(*) AS n FROM bizq').first()).n };
+  });
+  await t('groups', async () => ({ groups: (await activeGroups(env)).map((g) => g.title) }));
+  await t('timer', async () => { const a = await activeTimer(env); return { active: a ? `#${a.num} ${a.title}, ${Math.round((Date.now() - a.started) / 60000)}/${a.budget} мин` : null }; });
+  await t('media', async () => ({ note: 'голос/фото идут через тот же ключ Gemini', keyPresent: !!env.LLM_API_KEY }));
+  out.allOk = Object.values(out).every((x) => x.ok);
+  out.now = nowLocal();
+  return out;
+}
+
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
@@ -1377,6 +1432,7 @@ export default {
         })());
         return new Response('ok');
       }
+      if (path === '/health') return json(await healthCheck(env));
       if (path === '/status') {
         await ensureSchema(env);
         const w = await tg(env, 'getWebhookInfo', {});
