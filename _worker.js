@@ -24,7 +24,7 @@ const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 // Notion: названия колонок базы. Если переименуешь колонку в Notion — поменяй и здесь.
 const NOTION_VERSION = '2025-09-03';
 const NOTION_DB_TITLE = 'Задачи Джеффа';
-const P = { title: 'Задача', status: 'Статус', project: 'Проект', deadline: 'Дедлайн', created: 'Поставлена', step: 'Следующий шаг' };
+const P = { title: 'Задача', status: 'Статус', project: 'Проект', deadline: 'Дедлайн', created: 'Поставлена', step: 'Следующий шаг', planned: 'План (мин)', spent: 'Затрачено (мин)' };
 const STATUS_OPTIONS = [
   { name: 'Список', color: 'gray' }, { name: 'Задачи на неделю', color: 'blue' },
   { name: 'Сегодня', color: 'orange' }, { name: 'Завтра', color: 'yellow' }, { name: 'Готово', color: 'green' },
@@ -77,6 +77,8 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS gchats (id INTEGER PRIMARY KEY, title TEXT, type TEXT, active INTEGER NOT NULL DEFAULT 1, updated TEXT)',
   'CREATE TABLE IF NOT EXISTS gmsgs (id INTEGER PRIMARY KEY AUTOINCREMENT, chat INTEGER NOT NULL, name TEXT, text TEXT, at TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS gmsgs_chat ON gmsgs (chat, id)',
+  // таймеры задач: сколько выделено, когда начал, предупредили ли
+  'CREATE TABLE IF NOT EXISTS timers (id INTEGER PRIMARY KEY AUTOINCREMENT, page TEXT NOT NULL, num INTEGER, title TEXT, started INTEGER NOT NULL, budget INTEGER NOT NULL, warned INTEGER NOT NULL DEFAULT 0, over INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, msg INTEGER)',
 ];
 let schemaReady = false;
 async function ensureSchema(env) {
@@ -172,6 +174,8 @@ async function ensureNotion(env) {
         [P.deadline]: { date: {} },
         [P.created]: { created_time: {} },
         [P.step]: { rich_text: {} },
+        [P.planned]: { number: { format: 'number' } },
+        [P.spent]: { number: { format: 'number' } },
       },
     },
   });
@@ -191,6 +195,11 @@ async function notionSchema(env, cfg, force = false) {
   const cached = await getMeta(env, 'nschema');
   if (!force && cached && cached.ds === cfg.ds && Date.now() - cached.at < 10 * 60e3) return cached;
   const src = await notion(env, 'GET', '/data_sources/' + cfg.ds);
+  const missing = [P.planned, P.spent].filter((k) => !(src.properties || {})[k]);
+  if (missing.length) { // колонки учёта времени — добавляем в старую базу
+    try { await notion(env, 'PATCH', '/data_sources/' + cfg.ds, { properties: Object.fromEntries(missing.map((k) => [k, { number: { format: 'number' } }])) }); }
+    catch (e) { console.log('add time columns', String(e)); }
+  }
   const sp = (src.properties || {})[P.status] || {};
   const statusType = sp.type === 'status' ? 'status' : 'select';
   const statuses = ((sp[statusType] || {}).options || []).map((o) => o.name).filter(Boolean);
@@ -239,6 +248,8 @@ function pageToTask(p, num) {
     deadline: notionDateToLocal(dl && dl.start),
     created: p.created_time ? nowLocal(Date.parse(p.created_time)) : '',
     next_step: plain((pr[P.step] || {}).rich_text),
+    planned: pr[P.planned] && typeof pr[P.planned].number === 'number' ? pr[P.planned].number : null,
+    spent: pr[P.spent] && typeof pr[P.spent].number === 'number' ? pr[P.spent].number : null,
   };
 }
 async function queryPages(env, cfg, body) {
@@ -271,6 +282,8 @@ function taskProps(f, schema) {
   if ('project' in f) props[P.project] = { select: f.project ? { name: f.project } : null };
   if ('deadline' in f) props[P.deadline] = { date: f.deadline ? { start: localToIso(f.deadline) } : null };
   if ('next_step' in f) props[P.step] = { rich_text: f.next_step ? richText(f.next_step) : [] };
+  if ('planned' in f) props[P.planned] = { number: f.planned == null ? null : Math.round(f.planned) };
+  if ('spent' in f) props[P.spent] = { number: f.spent == null ? null : Math.round(f.spent) };
   return props;
 }
 // Кэш открытых задач для подсказки модели: Notion отвечает ~0.5–1.5 с, а нужен он почти каждому сообщению
@@ -345,6 +358,7 @@ function taskCard(t, head = '✅ Задача') {
   if (t.project) lines.push(`📁 Проект: ${esc(t.project)}`);
   if (t.status) lines.push(`📌 Статус: ${esc(t.status)}`);
   if (t.next_step) lines.push(`👉 Следующий шаг: ${esc(t.next_step)}`);
+  if (t.planned || t.spent) lines.push(`⏱ Время: ${fmtMin(t.spent || 0)} из ${t.planned ? fmtMin(t.planned) : '—'}`);
   if (t.created) lines.push(`🕒 Поставлена: ${human(t.created)}`);
   if (t.url) lines.push(`<a href="${escAttr(t.url)}">Открыть в Notion</a>`);
   return lines.join('\n');
@@ -384,6 +398,7 @@ function listText(tasks, url) {
     const meta = [];
     if (t.deadline) meta.push(k === 'over' ? `⏰ ${shortWhen(t.deadline)} — просрочено на ${overdueBy(t.deadline)}` : `⏰ ${shortWhen(t.deadline)}`);
     if (t.project) meta.push(`📁 ${esc(t.project)}`);
+    if (t.planned || t.spent) meta.push(`⏱ ${fmtMin(t.spent || 0)}${t.planned ? '/' + fmtMin(t.planned) : ''}`);
     let out = `<b>#${t.id}</b> ${esc(t.title)}`;
     if (meta.length) out += '\n' + meta.join('  ·  ');
     if (t.next_step) out += `\n👉 ${esc(t.next_step)}`;
@@ -409,7 +424,7 @@ function listText(tasks, url) {
 }
 function tasksForPrompt(tasks) {
   if (!tasks.length) return 'Открытых задач нет.';
-  return tasks.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${t.status || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${(t.created || '-').replace('T', ' ')} | следующий шаг: ${t.next_step || '-'}`).join('\n');
+  return tasks.map((t) => `#${t.id} | ${t.title} | проект: ${t.project || '-'} | статус: ${t.status || '-'} | дедлайн: ${(t.deadline || '-').replace('T', ' ')} | поставлена: ${(t.created || '-').replace('T', ' ')} | следующий шаг: ${t.next_step || '-'} | время: план ${t.planned ?? '-'} мин, потрачено ${t.spent ?? 0} мин`).join('\n');
 }
 
 // ---------- Времена намаза ----------
@@ -558,6 +573,13 @@ async function applyActions(env, actions) {
         const date = validDate(a.date) ? a.date : today();
         await markPrayer(env, date, a.key, a.done !== false);
         out.push(`${a.done === false ? '↩️ Снял отметку' : '✅ Отметил'}: ${prayerName(a.key)}`);
+      } else if (a.type === 'timer_start' && a.id) {
+        const r = await startTimer(env, a.id, a.minutes);
+        if (r.kb) { const cfgT = await getMeta(env, 'cfg', {}); await send(env, cfgT.chat, r.text, { reply_markup: r.kb }); } else out.push(r.text);
+      } else if (a.type === 'timer_stop') {
+        out.push(await stopTimer(env, !!a.done));
+      } else if (a.type === 'timer_extend') {
+        out.push(await extendTimer(env, a.minutes));
       } else if (a.type === 'group_send') {
         const r = await draftGroupMessage(env, a.group, a.text); if (r) out.push(esc(r));
       } else if (a.type === 'group_read') {
@@ -608,6 +630,9 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 {"type": "prayers"}  (показать сводку молитв за сегодня)
 {"type": "busy", "until": "YYYY-MM-DD HH:MM" или null}  (пользователь занят: «я на встрече до 5», «не беспокой 2 часа» — пока занят, бот отвечает людям в его личке и потом шлёт сводку)
 {"type": "free"}  (пользователь освободился)
+{"type": "timer_start", "id": 5, "minutes": 40}  (пользователь начинает задачу: «начинаю #5», «взялся за КП». minutes — сколько он сам назвал; если не назвал — оцени реалистично сам и в reply скажи, сколько поставил)
+{"type": "timer_stop", "done": true | false}  («закончил», «стоп», «сделал» — done=true, если задача выполнена; время запишется в Notion)
+{"type": "timer_extend", "minutes": 15}  («добавь ещё 15 минут»)
 {"type": "group_send", "group": "название группы", "text": "готовый текст сообщения"}  (написать в Telegram-группу, где есть бот; бот покажет черновик с кнопкой «Отправить». Пиши текст от лица ассистента Джеффа или так, как попросил пользователь)
 {"type": "group_read", "group": "название группы" или null, "limit": 60}  (прочитать и пересказать, что писали в группе; null — все группы за сутки)
 
@@ -669,7 +694,9 @@ async function contextHeader(env) {
   }
   let groupsText = '';
   try { const gs = await activeGroups(env); groupsText = gs.length ? '\nГруппы, где есть бот: ' + gs.map((g) => '«' + g.title + '»').join(', ') + '.' : '\nБот пока не состоит ни в одной группе.'; } catch {}
-  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nСтатусы задач в Notion: ${statuses}.${groupsText}\nОткрытые задачи:\n${tasksText}`;
+  let timerText = '';
+  try { timerText = '\n' + (await timerContext(env)); } catch {}
+  return `Сейчас: ${n.replace('T', ' ')}, ${WEEKDAYS[d.getUTCDay()]} (Ташкент).\nСтатусы задач в Notion: ${statuses}.${groupsText}${timerText}\nОткрытые задачи:\n${tasksText}`;
 }
 
 // ---------- Обработка сообщений ----------
@@ -679,7 +706,7 @@ function welcome() {
     '«Сделал КП» — закрою. «Перенеси созвон на пятницу» — перенесу. Правки, которые ты делаешь прямо в Notion, я тоже вижу.\n' +
     `Утром в ${MORNING} пришлю план, вечером в ${EVENING} — разбор дня. О дедлайнах напомню за час и в момент дедлайна.\n\n` +
     '🕌 В время намаза напомню и буду повторять каждые 10 минут, пока не отметишь.\n\n' +
-    '🔕 Занят? /busy 2ч — отвечу людям в твоей личке и потом пришлю сводку (нужен Telegram Business).\n🎤 Можно присылать голосовые и 📷 фото (скрины переписки, записи) — сделаю из них задачи.\n\n/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
+    '⏱ «Начинаю #5 на 40 минут» или /go 5 40 — засеку время, за 5 минут напомню, итог запишу в Notion.\n🔕 Занят? /busy 2ч — отвечу людям в твоей личке и потом пришлю сводку (нужен Telegram Business).\n🎤 Можно присылать голосовые и 📷 фото (скрины переписки, записи) — сделаю из них задачи.\n\n/tasks — задачи, /notion — база в Notion, /namoz — молитвы, /istigfar 300 — истигфар за сегодня.';
 }
 // ---------- Фото и голосовые → текст (Gemini) ----------
 const MEDIA_MAX = 19 * 1024 * 1024; // лимит скачивания у Telegram-ботов — 20 МБ
@@ -781,8 +808,15 @@ async function onMessage(env, msg) {
     if (/^ночь\s*(вкл|on|да)/i.test(m[1])) { await setMeta(env, 'busy_night', true); return send(env, chat, 'Ночью (23:00–08:00) отвечаю за тебя и утром присылаю сводку.'); }
     return send(env, chat, await setBusy(env, parseBusyArg(m[1])));
   }
+  m = text.match(/^\/go(?:@\w+)?\s*#?(\d+)?\s*(\d+)?/);
+  if (m) {
+    if (!m[1]) return send(env, chat, 'Укажи номер задачи: /go 5 или /go 5 40 (минут).');
+    const r = await startTimer(env, Number(m[1]), m[2] ? Number(m[2]) : null);
+    return send(env, chat, r.text, r.kb ? { reply_markup: r.kb } : undefined);
+  }
+  if (/^\/stop/.test(text)) return send(env, chat, await stopTimer(env, false));
   if (/^\/free/.test(text)) { const r = await setFree(env, chat); return r ? send(env, chat, r) : null; }
-  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar, /busy, /free.');
+  if (text.startsWith('/')) return send(env, chat, 'Не знаю такой команды. Есть: /tasks, /notion, /namoz, /istigfar, /go, /stop, /busy, /free.');
 
   return chatWithJeff(env, chat, text, heard);
 }
@@ -909,6 +943,12 @@ async function onCallback(env, cq) {
   const data = cq.data || '';
   const msg = cq.message;
   let note = '';
+  if (/^(tx:\d+|ts|td)$/.test(data)) {
+    const r = data === 'ts' ? await stopTimer(env, false) : data === 'td' ? await stopTimer(env, true) : await extendTimer(env, Number(data.split(':')[1]));
+    await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id });
+    if (msg) await tg(env, 'editMessageReplyMarkup', { chat_id: msg.chat.id, message_id: msg.message_id, reply_markup: { inline_keyboard: [] } });
+    return send(env, cq.from.id, r, data.startsWith('tx') ? { reply_markup: timerKb } : undefined);
+  }
   let g = data.match(/^(g|gx):(\w+)$/);
   if (g) {
     const d = await getMeta(env, 'gdraft:' + g[2], null);
@@ -1192,11 +1232,74 @@ async function cronBusy(env, chat) {
   await flushBizDigest(env, chat);
 }
 
+// ---------- Таймер задач ----------
+const WARN_BEFORE_MIN = 5;
+function fmtMin(m) { m = Math.round(m || 0); return m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; }
+const timerKb = { inline_keyboard: [[{ text: '+15 мин', callback_data: 'tx:15' }, { text: '⏹ Стоп', callback_data: 'ts' }, { text: '✅ Готово', callback_data: 'td' }]] };
+const activeTimer = (env) => env.DB.prepare('SELECT * FROM timers WHERE active=1 ORDER BY id DESC LIMIT 1').first();
+async function stopTimer(env, done = false) {
+  const t = await activeTimer(env);
+  if (!t) return 'Сейчас таймер не запущен. Начать: «начинаю #5 на 30 минут» или /go 5 30.';
+  const mins = Math.max(1, Math.round((Date.now() - t.started) / 60000));
+  await env.DB.prepare('UPDATE timers SET active=0 WHERE id=?').bind(t.id).run();
+  let total = mins, note = '';
+  try {
+    const { schema } = await taskCtx(env);
+    const task = await taskByNum(env, t.num);
+    total = ((task && task.spent) || 0) + mins;
+    const f = { spent: total };
+    if (done) f.status = doneStatusOf(schema);
+    await updateTask(env, schema, t.page, f);
+  } catch (e) { console.log('timer notion', String(e)); note = '\n⚠️ В Notion записать не получилось: ' + esc(setupHint(e)); }
+  const diff = mins - t.budget;
+  const verdict = diff > 0 ? `на ${fmtMin(diff)} дольше плана` : diff < 0 ? `на ${fmtMin(-diff)} быстрее плана 💪` : 'ровно по плану';
+  return `${done ? '🏁 Закрыта' : '⏹ Остановил'} #${t.num}: <b>${esc(t.title)}</b>\n⏱ Потрачено ${fmtMin(mins)} из ${fmtMin(t.budget)} — ${verdict}.\nВсего на задачу: ${fmtMin(total)} (записал в Notion).` + note;
+}
+async function startTimer(env, num, minutes) {
+  const task = await taskByNum(env, num);
+  if (!task) return { text: `Задачи #${num} не нашёл среди открытых.` };
+  let prev = '';
+  const cur = await activeTimer(env);
+  if (cur) prev = (await stopTimer(env, false)) + '\n\n';
+  const budget = Math.max(1, Math.min(600, Math.round(Number(minutes) || task.planned || 30)));
+  await env.DB.prepare('INSERT INTO timers (page, num, title, started, budget) VALUES (?, ?, ?, ?, ?)').bind(task.page, task.id, task.title, Date.now(), budget).run();
+  try { const { schema } = await taskCtx(env); if (task.planned !== budget) await updateTask(env, schema, task.page, { planned: budget }); } catch (e) { console.log('timer plan', String(e)); }
+  const end = nowLocal(Date.now() + budget * 60000).slice(11, 16);
+  return { text: prev + `▶️ Засёк: #${task.id} <b>${esc(task.title)}</b>\n⏱ ${fmtMin(budget)} — закончить к ${end}. За ${WARN_BEFORE_MIN} минут напомню.` + (task.spent ? `\nРаньше уже потрачено: ${fmtMin(task.spent)}.` : ''), kb: timerKb };
+}
+async function extendTimer(env, minutes) {
+  const t = await activeTimer(env);
+  if (!t) return 'Сейчас таймер не запущен.';
+  const add = Math.max(1, Math.round(Number(minutes) || 15));
+  const budget = t.budget + add;
+  await env.DB.prepare('UPDATE timers SET budget=?, warned=0, over=0 WHERE id=?').bind(budget, t.id).run();
+  try { const { schema } = await taskCtx(env); await updateTask(env, schema, t.page, { planned: budget }); } catch (e) { console.log('timer extend', String(e)); }
+  return `➕ Добавил ${fmtMin(add)} на #${t.num}. Теперь закончить к ${nowLocal(t.started + budget * 60000).slice(11, 16)}.`;
+}
+async function cronTimers(env, chat) {
+  const t = await activeTimer(env);
+  if (!t) return;
+  const left = t.started + t.budget * 60000 - Date.now();
+  if (left <= 0 && !t.over) {
+    await send(env, chat, `⌛️ Время на #${t.num} <b>${esc(t.title)}</b> вышло (${fmtMin(t.budget)}).\nЗакончил, или добавить времени?`, { reply_markup: timerKb });
+    await env.DB.prepare('UPDATE timers SET over=1, warned=1 WHERE id=?').bind(t.id).run();
+  } else if (left > 0 && left <= WARN_BEFORE_MIN * 60000 + 30000 && !t.warned) {
+    await send(env, chat, `⏳ Осталось ${Math.max(1, Math.round(left / 60000))} мин на #${t.num} <b>${esc(t.title)}</b>.`, { reply_markup: timerKb });
+    await env.DB.prepare('UPDATE timers SET warned=1 WHERE id=?').bind(t.id).run();
+  }
+}
+async function timerContext(env) {
+  const t = await activeTimer(env);
+  if (!t) return 'Таймер сейчас не запущен.';
+  const spent = Math.round((Date.now() - t.started) / 60000);
+  return `Сейчас идёт таймер: #${t.num} «${t.title}», прошло ${spent} мин из ${t.budget}.`;
+}
+
 async function runCron(env) {
   await ensureSchema(env);
   const cfg = await getMeta(env, 'cfg', {});
   if (!cfg.chat) return;
-  for (const job of [() => cronPrayers(env, cfg.chat), () => cronBusy(env, cfg.chat), () => cronColumns(env), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
+  for (const job of [() => cronPrayers(env, cfg.chat), () => cronTimers(env, cfg.chat), () => cronBusy(env, cfg.chat), () => cronColumns(env), () => cronDeadlines(env, cfg.chat), () => cronDigest(env, cfg.chat)]) {
     try { await job(); } catch (e) { console.log('cron job failed', String(e && e.stack || e)); }
   }
 }
@@ -1220,6 +1323,7 @@ async function setup(env, origin) {
   out.commands = (await tg(env, 'setMyCommands', { commands: [
     { command: 'tasks', description: 'Открытые задачи' }, { command: 'notion', description: 'База задач в Notion' },
     { command: 'namoz', description: 'Молитвы на сегодня' }, { command: 'istigfar', description: 'Истигфар за сегодня: /istigfar 300' },
+    { command: 'go', description: 'Начать задачу с таймером: /go 5 40' }, { command: 'stop', description: 'Остановить таймер и записать время' },
     { command: 'busy', description: 'Я занят: /busy 2ч или /busy до 18:00' }, { command: 'free', description: 'Я свободен — сводка, кто писал' }] })).ok;
   try {
     const n = await ensureNotion(env);
