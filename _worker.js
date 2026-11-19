@@ -273,7 +273,18 @@ function taskProps(f, schema) {
   if ('next_step' in f) props[P.step] = { rich_text: f.next_step ? richText(f.next_step) : [] };
   return props;
 }
+// Кэш открытых задач для подсказки модели: Notion отвечает ~0.5–1.5 с, а нужен он почти каждому сообщению
+const CTX_TTL_MS = 45000;
+async function cachedOpenTasks(env, cfg, schema) {
+  const c = await getMeta(env, 'ctx_tasks', null);
+  if (c && Date.now() - c.at < CTX_TTL_MS) return c.tasks;
+  const tasks = await openTasks(env, cfg, schema);
+  await setMeta(env, 'ctx_tasks', { at: Date.now(), tasks });
+  return tasks;
+}
+const dropTaskCache = (env) => env.DB.prepare("DELETE FROM meta WHERE k='ctx_tasks'").run();
 async function createTask(env, cfg, schema, f) {
+  await dropTaskCache(env);
   const page = await notion(env, 'POST', '/pages', {
     parent: { type: 'data_source_id', data_source_id: cfg.ds },
     properties: taskProps({ status: openStatusOf(schema), ...f }, schema),
@@ -281,10 +292,12 @@ async function createTask(env, cfg, schema, f) {
   return (await toTasks(env, [page]))[0];
 }
 async function updateTask(env, schema, pageId, f) {
+  await dropTaskCache(env);
   const page = await notion(env, 'PATCH', '/pages/' + pageId, { properties: taskProps(f, schema) });
   return (await toTasks(env, [page]))[0];
 }
 async function trashPage(env, pageId) {
+  await dropTaskCache(env);
   try { await notion(env, 'PATCH', '/pages/' + pageId, { in_trash: true }); } catch (e) {
     if (e.status !== 400) throw e;
     await notion(env, 'PATCH', '/pages/' + pageId, { archived: true });
@@ -610,16 +623,24 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 - Если это вопрос или разговор, а не задача, — просто ответь в reply, actions пустой.
 - reply: коротко, по делу, на «ты», по-русски. Если перечисляешь несколько пунктов — каждый с новой строки, между смысловыми блоками пустая строка; никаких сплошных простыней текста. Не пересказывай карточки — бот покажет их сам. Ты ментор: если задач слишком много, дедлайны нереальные или пользователь распыляется — скажи прямо.`;
 
+const noReasoningFlag = new Set();
 async function llm(env, messages, jsonMode = true) {
   let last = new Error('LLM недоступна');
   for (const model of LLM_MODELS) {
     try {
       const body = { model, messages, temperature: 0.3 };
       if (jsonMode) body.response_format = { type: 'json_object' };
-      const r = await fetch(LLM_BASE + '/chat/completions', {
+      if (!noReasoningFlag.has(model)) body.reasoning_effort = 'low'; // меньше «раздумий» — быстрее ответ
+      const call = () => fetch(LLM_BASE + '/chat/completions', {
         method: 'POST', headers: { Authorization: 'Bearer ' + env.LLM_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify(body), signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
       });
+      let r = await call();
+      if (r.status === 400 && body.reasoning_effort) { // модель не принимает reasoning_effort — больше не шлём
+        const t = await r.text();
+        if (/reasoning/i.test(t)) { noReasoningFlag.add(model); delete body.reasoning_effort; r = await call(); }
+        else r = new Response(t, { status: 400 });
+      }
       if (!r.ok) { last = new Error('LLM ' + r.status); if (r.status !== 404 && r.status !== 429 && r.status < 500) throw last; continue; }
       const j = await r.json();
       const text = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
@@ -642,7 +663,7 @@ async function contextHeader(env) {
   try {
     const { cfg, schema } = await taskCtx(env);
     statuses = schema.statuses.join(', ');
-    tasksText = tasksForPrompt(await openTasks(env, cfg, schema));
+    tasksText = tasksForPrompt(await cachedOpenTasks(env, cfg, schema));
   } catch (e) {
     tasksText = '(список задач недоступен: Notion не ответил)';
   }
@@ -768,19 +789,25 @@ async function onMessage(env, msg) {
 
 // Свободный текст → модель → действия. replyTo — чат для ответа (личка или группа).
 async function chatWithJeff(env, replyTo, text, heard = '', extra = '') {
-  await tg(env, 'sendChatAction', { chat_id: replyTo, action: 'typing' });
-  const hist = await getMeta(env, 'hist', []);
+  const t0 = Date.now();
+  const [, hist, header] = await Promise.all([
+    tg(env, 'sendChatAction', { chat_id: replyTo, action: 'typing' }), getMeta(env, 'hist', []), contextHeader(env)]);
+  const t1 = Date.now();
   let data;
   try {
-    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + (await contextHeader(env)) + (extra ? '\n' + extra : '') }, ...hist, { role: 'user', content: text }]));
+    data = extractJson(await llm(env, [{ role: 'system', content: SYSTEM + '\n\n' + header + (extra ? '\n' + extra : '') }, ...hist, { role: 'user', content: text }]));
   } catch (e) {
     console.log('llm failed', String(e));
     return send(env, replyTo, 'Не смог обработать — модель не ответила. Попробуй ещё раз.');
   }
+  const t2 = Date.now();
   const blocks = await applyActions(env, data.actions);
   const reply = String(data.reply || '').trim();
   hist.push({ role: 'user', content: text }, { role: 'assistant', content: reply || 'Готово.' });
-  await setMeta(env, 'hist', hist.slice(-12));
+  const t3 = Date.now();
+  const perf = await getMeta(env, 'perf', []);
+  perf.push({ at: nowLocal(), context_ms: t1 - t0, llm_ms: t2 - t1, actions_ms: t3 - t2, total_ms: t3 - t0 });
+  await Promise.all([setMeta(env, 'hist', hist.slice(-12)), setMeta(env, 'perf', perf.slice(-10))]);
   const heardLine = heard ? '🎤 <i>' + esc(heard.length > 600 ? heard.slice(0, 600) + '…' : heard) + '</i>' : '';
   const body = [heardLine, ...blocks, reply ? esc(reply) : ''].filter(Boolean).join('\n\n');
   if (!body && (Array.isArray(data.actions) ? data.actions : []).some((a) => a && a.type === 'group_send')) return; // черновик уже показан
@@ -1253,7 +1280,7 @@ export default {
         const r = w.result || {};
         return json({ webhookUrl: r.url || null, pending: r.pending_update_count, telegramLastError: r.last_error_message || null,
           telegramLastErrorAt: r.last_error_date ? new Date(r.last_error_date * 1000).toISOString() : null,
-          ownerSet: !!cfg.owner, lastError: await getMeta(env, 'last_error', null), now: nowLocal() });
+          ownerSet: !!cfg.owner, lastError: await getMeta(env, 'last_error', null), perf: await getMeta(env, 'perf', []), now: nowLocal() });
       }
       if (path === '/setup') return json(await setup(env, url.origin + '/jeff'));
       if (path === '/cron') { // тик расписания; не чаще раза в 45 секунд, кто бы ни вызвал
