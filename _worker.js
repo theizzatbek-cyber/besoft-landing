@@ -336,12 +336,63 @@ function taskCard(t, head = '✅ Задача') {
   if (t.url) lines.push(`<a href="${escAttr(t.url)}">Открыть в Notion</a>`);
   return lines.join('\n');
 }
+function shortWhen(local) {
+  if (!local) return '';
+  const d = new Date(local.slice(0, 10) + 'T00:00:00Z');
+  const t = local.slice(11, 16);
+  return `${WEEKDAYS[d.getUTCDay()]} ${local.slice(8, 10)}.${local.slice(5, 7)}${t && t !== '00:00' ? ' · ' + t : ''}`;
+}
+function overdueBy(local, now = Date.now()) {
+  const min = Math.floor((now - localToMs(local.length > 10 ? local : local + 'T18:00')) / 60000);
+  if (min < 60) return `${Math.max(min, 1)} мин`;
+  if (min < 24 * 60) return `${Math.floor(min / 60)} ч`;
+  return `${Math.floor(min / 1440)} дн`;
+}
+// Список задач: секции по срокам, каждая задача — отдельный абзац
 function listText(tasks, url) {
-  const link = url ? `\n\n<a href="${escAttr(url)}">Все задачи в Notion</a>` : '';
-  if (!tasks.length) return 'Открытых задач нет.' + link;
-  const now = nowLocal();
-  return '📋 <b>Открытые задачи</b>\n' + tasks.map((t) =>
-    `#${t.id} ${esc(t.title)}${t.project ? ` [${esc(t.project)}]` : ''} — ${human(t.deadline)}${t.deadline && t.deadline < now ? ' 🔴 просрочено' : ''}`).join('\n') + link;
+  const link = url ? `<a href="${escAttr(url)}">Открыть доску в Notion →</a>` : '';
+  if (!tasks.length) return '📋 <b>Открытых задач нет</b> — красота.' + (link ? '\n' + link : '');
+  const now = nowLocal(), day = today(), tmr = addDaysStr(day, 1), wEnd = weekEndStr(day);
+  const sections = [
+    { key: 'over', title: '🔴 <b>Просрочено</b>', items: [] },
+    { key: 'today', title: '🔥 <b>Сегодня</b>', items: [] },
+    { key: 'tmr', title: '🌅 <b>Завтра</b>', items: [] },
+    { key: 'week', title: '📅 <b>На этой неделе</b>', items: [] },
+    { key: 'later', title: '🗓 <b>Позже</b>', items: [] },
+    { key: 'none', title: '🗂 <b>Без срока</b>', items: [] },
+  ];
+  const by = Object.fromEntries(sections.map((x) => [x.key, x]));
+  for (const t of tasks) {
+    const d = (t.deadline || '').slice(0, 10);
+    const k = !t.deadline ? 'none' : t.deadline < now ? 'over' : d === day ? 'today' : d === tmr ? 'tmr' : d <= wEnd ? 'week' : 'later';
+    by[k].items.push(t);
+  }
+  const card = (t, k) => {
+    const meta = [];
+    if (t.deadline) meta.push(k === 'over' ? `⏰ ${shortWhen(t.deadline)} — просрочено на ${overdueBy(t.deadline)}` : `⏰ ${shortWhen(t.deadline)}`);
+    if (t.project) meta.push(`📁 ${esc(t.project)}`);
+    let out = `<b>#${t.id}</b> ${esc(t.title)}`;
+    if (meta.length) out += '\n' + meta.join('  ·  ');
+    if (t.next_step) out += `\n👉 ${esc(t.next_step)}`;
+    return out;
+  };
+  const over = by.over.items.length;
+  const head = `📋 <b>Задачи: ${tasks.length}</b>${over ? ` · просрочено ${over}` : ''}`;
+  const parts = [head];
+  let budget = 3800 - head.length - link.length;
+  let hidden = 0;
+  for (const sec of sections) {
+    if (!sec.items.length) continue;
+    const block = [`${sec.title} (${sec.items.length})`];
+    for (const t of sec.items) {
+      const c = card(t, sec.key);
+      if (budget - c.length - 2 < 0) { hidden++; continue; }
+      budget -= c.length + 2; block.push(c);
+    }
+    if (block.length > 1) parts.push(block.join('\n\n'));
+  }
+  if (hidden) parts.push(`…и ещё ${hidden} — смотри в Notion.`);
+  return parts.join('\n\n━━━━━━━━━━\n\n') + (link ? '\n\n' + link : '');
 }
 function tasksForPrompt(tasks) {
   if (!tasks.length) return 'Открытых задач нет.';
@@ -557,7 +608,7 @@ const SYSTEM = `Ты — Джефф, личный ассистент и мент
 - «сделал», «готово», «закрыл» → done по подходящей задаче из списка. «перенеси», «сдвинь» → update. Номера задач бери только из списка ниже. Если непонятно, о какой задаче речь, — спроси, действий не делай.
 - «прочитал аср», «бомдод прочитан» → prayer. «истигфар 300» → istighfar с mode "set"; «ещё 100 истигфара» → mode "add". «прочитал Вакиа» → vakia.
 - Если это вопрос или разговор, а не задача, — просто ответь в reply, actions пустой.
-- reply: коротко, по делу, на «ты», по-русски. Не пересказывай карточки — бот покажет их сам. Ты ментор: если задач слишком много, дедлайны нереальные или пользователь распыляется — скажи прямо.`;
+- reply: коротко, по делу, на «ты», по-русски. Если перечисляешь несколько пунктов — каждый с новой строки, между смысловыми блоками пустая строка; никаких сплошных простыней текста. Не пересказывай карточки — бот покажет их сам. Ты ментор: если задач слишком много, дедлайны нереальные или пользователь распыляется — скажи прямо.`;
 
 async function llm(env, messages, jsonMode = true) {
   let last = new Error('LLM недоступна');
@@ -962,7 +1013,7 @@ async function cronDigest(env, chat) {
   let text;
   try {
     text = await llm(env, [
-      { role: 'system', content: 'Ты — Джефф, ментор предпринимателя. Пиши коротко, прямо, на «ты», по-русски, обычным текстом без разметки. Ссылайся на задачи по номерам.\n\n' + (await contextHeader(env)) },
+      { role: 'system', content: 'Ты — Джефф, ментор предпринимателя. Пиши коротко, прямо, на «ты», по-русски, обычным текстом без разметки. Ссылайся на задачи по номерам. Структурируй: каждая задача — отдельный абзац вида «#5 Название — почему важно / что сделать», между абзацами пустая строка; короткие заголовки блоков с эмодзи (например «🔥 Главное сегодня», «🔴 Просрочено»). Без сплошного текста.\n\n' + (await contextHeader(env)) },
       { role: 'user', content: ask }], false);
   } catch { text = null; }
   if (text && mode === 'evening') {
