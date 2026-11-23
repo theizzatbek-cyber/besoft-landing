@@ -450,6 +450,9 @@ document.getElementById("leadForm").addEventListener("submit",ev=>{
   const lead=Object.assign({tg_token:tgTok,name,phone:"+"+digits,lang,page:location.href,path:location.pathname},SRC);
   /* заявка уходит в Google Apps Script: сделка в amoCRM + строка в Google Таблице */
   fetch(LEAD_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead),keepalive:true}).catch(()=>{});
+  /* платформа бота Be Soft (Supabase): лид + ссылка в бота, которая склеит заявку с чатом */
+  fetch(BS_API+"/lead",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({landing:location.pathname.split("/").filter(Boolean).join("-")||"main",name,phone:"+"+digits,lang,utm:SRC,referrer:document.referrer,page_url:location.href})})
+    .then(r=>r.json()).then(j=>{ if(j&&j.bot_url) document.getElementById("botLink").href=j.bot_url; }).catch(()=>{});
   goal("lead_form");
   ev.target.hidden=true; document.getElementById("done").hidden=false;
 });
@@ -484,6 +487,7 @@ if("IntersectionObserver" in window){
 function goal(n){try{if(window.ym) ym(113791518,"reachGoal",n);}catch(e){}}
 /* бот Be Soft: одноразовый токен связывает заявку с чатом в Telegram */
 const BS_BOT="besoft_uz_bot";
+const BS_API="https://sndspiruxuxdmbykvxbd.supabase.co/functions/v1/bs-bot";
 function newTok(){try{const b=new Uint8Array(16);crypto.getRandomValues(b);return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");}catch(e){return (Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^a-z0-9]/g,"").slice(0,32);}}
 document.getElementById("botLink").addEventListener("click",()=>goal("bot_click"));
 document.querySelectorAll(".dial").forEach(a=>a.addEventListener("click",()=>goal("call_click")));
